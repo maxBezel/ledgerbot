@@ -1,1 +1,1 @@
-![ledgerbot](https://x.com/MiguelVasquez3D/status/1356807986006487042/photo/3)
+![ledgerbot](https://pbs.twimg.com/media/EtRZbt1VkAM10WG?format=jpg&name=large)
