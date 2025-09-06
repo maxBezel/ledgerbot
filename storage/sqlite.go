@@ -84,3 +84,62 @@ func (s *Storage) AddAccount(ctx context.Context, acc *model.Account) error {
 	acc.Id = int(id)
 	return nil
 }
+
+func (s *Storage) RemoveAccount(ctx context.Context, chatId int64, name string) error {
+	q := `DELETE FROM accounts WHERE chat_id = ? AND name = ?`
+	res, err := s.db.ExecContext(ctx, q, chatId, name)
+	if err != nil {
+		return fmt.Errorf("could not remove account %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+
+	if n == 0 {
+		return fmt.Errorf("account not found")
+	}
+
+	return nil
+}
+
+func (s *Storage) GetAll(ctx context.Context, chatId int64) ([]string, error) {
+	const q = `
+		SELECT name
+		FROM accounts
+		WHERE chat_id = ?
+		ORDER BY created_at ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, chatId)
+	if err != nil {
+		return nil, fmt.Errorf("query accounts: %w", err)
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("scan account name: %w", err)
+		}
+		names = append(names, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return names, nil
+}
+
+func (s *Storage) Exists(ctx context.Context, chatId int64, name string) (bool, error) {
+	q := `SELECT COUNT(*) FROM accounts WHERE chat_id = ? AND name = ?`
+
+	var count int
+	if err := s.db.QueryRowContext(ctx, q, chatId, name).Scan(&count); err != nil {
+		return false, fmt.Errorf("cant check if account exists %w", err)
+	}
+
+	return count > 0, nil
+}
