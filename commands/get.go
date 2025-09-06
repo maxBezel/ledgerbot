@@ -28,13 +28,11 @@ func Get() Command {
 				return nil
 			}
 
-			// Title: group name if present, otherwise "вас"
 			who := "вас"
 			if t := strings.TrimSpace(msg.Chat.Title); t != "" {
 				who = html.EscapeString(t)
 			}
 
-			// Pre-format numbers and compute max width for padding
 			formatted := make([]string, len(bals))
 			maxw := 0
 			for i, ab := range bals {
@@ -46,21 +44,19 @@ func Get() Command {
 			}
 
 			var b strings.Builder
-			// Header
+
 			fmt.Fprintf(&b, "<b>Средств на руках у %s:</b>\n", who)
 
-			// Monospace aligned table
 			b.WriteString("<pre>")
 			for i, ab := range bals {
 				amt := formatted[i]
 				name := html.EscapeString(ab.Name)
 
-				// left pad amount to maxw
 				pad := maxw - utf8.RuneCountInString(amt)
 				if pad > 0 {
 					b.WriteString(strings.Repeat(" ", pad))
 				}
-				// amount + two spaces + name
+
 				b.WriteString(amt)
 				b.WriteString("  ")
 				b.WriteString(name)
@@ -73,7 +69,6 @@ func Get() Command {
 			out := api.NewMessage(chatID, b.String())
 			out.ParseMode = "HTML"
 
-			// Optional: add the button under the message
 			btn := api.NewInlineKeyboardButtonData("Получить выписку", "statement")
 			out.ReplyMarkup = api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
 
@@ -83,10 +78,8 @@ func Get() Command {
 	}
 }
 
-// formatAmount prints a float as an integer if possible, otherwise with 2 decimals,
-// and inserts thousands separators using U+2019 (’), e.g. 8’136’901.
 func formatAmount(v float64) string {
-	sep := '’' // U+2019 right single quotation mark
+	sep := '’'
 	sign := ""
 	if v < 0 {
 		sign = "-"
@@ -94,13 +87,11 @@ func formatAmount(v float64) string {
 	}
 
 	if math.Trunc(v) == v {
-		// integer
 		s := strconv.FormatInt(int64(v), 10)
 		return sign + insertSep(s, sep)
 	}
 
-	// show 2 decimals, trim trailing zeros if you prefer:
-	s := strconv.FormatFloat(v, 'f', 2, 64) // e.g. "12345.60"
+	s := strconv.FormatFloat(v, 'f', 2, 64)
 	intPart, frac := s, ""
 	if dot := strings.IndexByte(s, '.'); dot >= 0 {
 		intPart, frac = s[:dot], s[dot+1:]
@@ -114,8 +105,6 @@ func formatAmount(v float64) string {
 	return sign + intPart + "." + frac
 }
 
-// insertSep inserts a thousands separator into a base-10 integer string.
-// s must be digits only (no sign).
 func insertSep(s string, sep rune) string {
 	n := len(s)
 	if n <= 3 {
