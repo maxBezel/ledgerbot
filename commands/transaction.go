@@ -67,7 +67,7 @@ func Transaction() Command {
 
 			msgOK := api.NewMessage(chatID,
 					"Balance successfully updated. New balance: "+
-					strconv.FormatFloat(newBalance, 'f', -1, 64),
+					strconv.FormatFloat(newBalance, 'f', 2, 64),
 			)
 			msgOK.ReplyMarkup = kb
 			_, _ = d.Bot.Send(msgOK)
