@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxBezel/ledgerbot/model"
@@ -215,7 +216,6 @@ func (s *Storage) Exists(ctx context.Context, chatId int64, name string) (bool, 
 	return count > 0, nil
 }
 
-
 func (s *Storage) GetAccountID(ctx context.Context, chatID int64, name string) (int, error) {
 	const q = `SELECT id FROM accounts WHERE chat_id = ? AND name = ? LIMIT 1`
 
@@ -304,12 +304,12 @@ func (s *Storage) ListAccountBalances(ctx context.Context, chatID int64) ([]Acco
 	return out, nil
 }
 
-
 func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filename string) error {
 	const q = `
 		SELECT
 			a.name,
 			t.created_by,
+			t.created_at,
 			t.expression,
 			t.amount,
 			a.balance,
@@ -336,7 +336,7 @@ func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filena
 	defer w.Flush()
 
 	if err := w.Write([]string{
-		"account", "userId", "expression", "eval", "account value", "comment",
+		"account", "userId", "createdAt", "expression", "eval", "account value", "comment",
 	}); err != nil {
 		return fmt.Errorf("write header: %w", err)
 	}
@@ -345,13 +345,14 @@ func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filena
 		var (
 			account   string
 			createdBy sql.NullInt64
+			createdAt string
 			expr      string
 			amount    float64
 			balance   float64
 			note      sql.NullString
 		)
 
-		if err := rows.Scan(&account, &createdBy, &expr, &amount, &balance, &note); err != nil {
+		if err := rows.Scan(&account, &createdBy, &createdAt, &expr, &amount, &balance, &note); err != nil {
 			return fmt.Errorf("scan row: %w", err)
 		}
 
@@ -365,9 +366,19 @@ func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filena
 			comment = note.String
 		}
 
+		createdAtOut := createdAt
+		if t, err := time.Parse(time.RFC3339Nano, createdAt); err == nil {
+			createdAtOut = t.Format("02-01-2006 15:04:05")
+		} else if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			createdAtOut = t.Format("2006-01-02 15:04:05")
+		} else if t, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			createdAtOut = t.Format("2006-01-02 15:04:05")
+		}
+
 		if err := w.Write([]string{
 			account,
 			userID,
+			createdAtOut,
 			expr,
 			strconv.FormatFloat(amount, 'f', -1, 64),
 			strconv.FormatFloat(balance, 'f', -1, 64),
@@ -387,3 +398,4 @@ func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filena
 
 	return nil
 }
+
