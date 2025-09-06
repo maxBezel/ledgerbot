@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxBezel/ledgerbot/model"
@@ -70,7 +69,7 @@ func (s *Storage) AddAccount(ctx context.Context, acc *model.Account) error {
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO accounts(name, chat_id, balance, created_at)
 		 VALUES(?, ?, ?, ?)`,
-		acc.Name, acc.ChatId, acc.Balance, acc.CreatedAt.Format(time.RFC3339Nano),
+		acc.Name, acc.ChatId, acc.Balance, acc.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert account: %w", err)
@@ -93,7 +92,7 @@ func (s *Storage) AddTransaction(ctx context.Context, txs *model.Transaction) (i
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO account_txns(account_id, amount, note, created_at, created_by)
 		 VALUES(?, ?, ?, ?, ?)`,
-		txs.AccountId, txs.Amount, txs.Note, txs.CreatedAt.Format(time.RFC3339Nano), txs.CreatedBy,
+		txs.AccountId, txs.Amount, txs.Note, txs.CreatedAt, txs.CreatedBy,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert txs: %w", err)

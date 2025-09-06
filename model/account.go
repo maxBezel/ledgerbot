@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"strings"
 	"time"
 )
@@ -10,7 +11,7 @@ type Account struct {
 	Name      string
 	ChatId    int64
 	Balance   float64
-	CreatedAt time.Time
+	CreatedAt string
 }
 
 func NewAccount(name string, chatID int64) *Account {
@@ -18,6 +19,6 @@ func NewAccount(name string, chatID int64) *Account {
 		Name:      strings.TrimSpace(name),
 		ChatId:    chatID,
 		Balance:   0,
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	}
 }

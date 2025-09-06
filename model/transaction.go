@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"strings"
 	"time"
 )
@@ -10,7 +11,7 @@ type Transaction struct {
 	AccountId int
 	Amount    float64
 	Note      string
-	CreatedAt time.Time
+	CreatedAt string
 	CreatedBy int64
 }
 
@@ -20,6 +21,6 @@ func NewTransaction(AccountId int, Amount float64, Note string, CreatedBy int64)
 		Amount: Amount,
 		Note: strings.TrimSpace(Note),
 		CreatedBy: CreatedBy,
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	}
 }
