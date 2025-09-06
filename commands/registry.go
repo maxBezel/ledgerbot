@@ -53,16 +53,11 @@ func (r *Registry) Handle(ctx context.Context, msg *api.Message) bool {
 		return false
 	}
 	name := msg.Command()
-	if c, ok := r.m[name]; ok {
-		_ = c.Handle(ctx, r.deps, msg)
-		return true
-	}
 
 	if c, ok := r.m[name]; ok {
 		_ = c.Handle(ctx, r.deps, msg)
 		return true
 	} else {
-
 		if t, ok := r.m["transaction"]; ok {
 			err := t.Handle(ctx, r.deps, msg)
 			if err != nil {

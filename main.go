@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 
 	api "github.com/OvyFlash/telegram-bot-api"
@@ -55,7 +54,6 @@ func main() {
 	for u := range updates {
 
 		if u.CallbackQuery != nil {
-				fmt.Println("test")
         commands.HandleCallback(ctx, deps, u.CallbackQuery)
         continue
     }
