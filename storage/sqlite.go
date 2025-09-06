@@ -85,6 +85,29 @@ func (s *Storage) AddAccount(ctx context.Context, acc *model.Account) error {
 	return nil
 }
 
+func (s *Storage) AddTransaction(ctx context.Context, txs *model.Transaction) (int64, error) {
+	if txs == nil {
+		return 0, fmt.Errorf("nil transaction")
+	}
+
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO account_txns(account_id, amount, note, created_at, created_by)
+		 VALUES(?, ?, ?, ?, ?)`,
+		txs.AccountId, txs.Amount, txs.Note, txs.CreatedAt.Format(time.RFC3339Nano), txs.CreatedBy,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("insert txs: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("last insert id: %w", err)
+	}
+
+	txs.Id = int(id)
+	return int64(id), nil
+}
+
 func (s *Storage) RemoveAccount(ctx context.Context, chatId int64, name string) error {
 	q := `DELETE FROM accounts WHERE chat_id = ? AND name = ?`
 	res, err := s.db.ExecContext(ctx, q, chatId, name)
@@ -133,6 +156,51 @@ func (s *Storage) GetAll(ctx context.Context, chatId int64) ([]string, error) {
 	return names, nil
 }
 
+func (s *Storage) AdjustBalance(ctx context.Context, chatId int64, name string, delta float64) (float64, error) {
+	if name == "" {
+		return 0, fmt.Errorf("empty account name")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	res, err := tx.ExecContext(ctx,
+		`UPDATE accounts
+		 SET balance = balance + ?
+		 WHERE chat_id = ? AND name = ?`,
+		delta, chatId, name,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("update balance: %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+	if n == 0 {
+		return 0, fmt.Errorf("account not found")
+	}
+
+	var newBalance float64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT balance FROM accounts WHERE chat_id = ? AND name = ?`,
+		chatId, name,
+	).Scan(&newBalance); err != nil {
+		return 0, fmt.Errorf("select new balance: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+	return newBalance, nil
+}
+
 func (s *Storage) Exists(ctx context.Context, chatId int64, name string) (bool, error) {
 	q := `SELECT COUNT(*) FROM accounts WHERE chat_id = ? AND name = ?`
 
@@ -142,4 +210,60 @@ func (s *Storage) Exists(ctx context.Context, chatId int64, name string) (bool, 
 	}
 
 	return count > 0, nil
+}
+
+
+func (s *Storage) GetAccountID(ctx context.Context, chatID int64, name string) (int, error) {
+	const q = `SELECT id FROM accounts WHERE chat_id = ? AND name = ? LIMIT 1`
+
+	var id int
+	if err := s.db.QueryRowContext(ctx, q, chatID, name).Scan(&id); err != nil {
+		return 0, fmt.Errorf("select account id: %w", err)
+	}
+	return id, nil
+}
+
+func (s *Storage) RevertTransaction(ctx context.Context, txsId int) (err error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var (
+		amount    float64
+		accountID int
+	)
+
+	const sel = `SELECT amount, account_id FROM account_txns WHERE id = ?`
+	if err = tx.QueryRowContext(ctx, sel, txsId).Scan(&amount, &accountID); err != nil {
+		return fmt.Errorf("select tx: %w", err)
+	}
+
+	const upd = `UPDATE accounts SET balance = balance - ? WHERE id = ?`
+	res, err := tx.ExecContext(ctx, upd, amount, accountID)
+	if err != nil {
+		return fmt.Errorf("update balance: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("account not found for transaction")
+	}
+
+	const del = `DELETE FROM account_txns WHERE id = ?`
+	res, err = tx.ExecContext(ctx, del, txsId)
+	if err != nil {
+		return fmt.Errorf("delete tx: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("transaction already deleted")
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil
 }

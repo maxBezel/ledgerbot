@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 
 	api "github.com/OvyFlash/telegram-bot-api"
@@ -41,6 +42,7 @@ func main() {
 	reg.Register(commands.List())
 	reg.Register(commands.New())
 	reg.Register(commands.Del())
+	reg.Register(commands.Transaction())
 
 	if _, err := bot.Request(api.NewSetMyCommands(reg.BotCommands()...)); err != nil {
 		log.Fatal(err)
@@ -51,11 +53,14 @@ func main() {
 	ctx := context.Background()
 
 	for u := range updates {
-		if u.Message == nil { 
-			continue 
-		}
-		if reg.Handle(ctx, u.Message) {
-			continue
-		}
+
+		if u.CallbackQuery != nil {
+				fmt.Println("test")
+        commands.HandleCallback(ctx, deps, u.CallbackQuery)
+        continue
+    }
+		if u.Message != nil {
+        reg.Handle(ctx, u.Message)
+    }
 	}
 }
