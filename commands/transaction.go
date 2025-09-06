@@ -3,14 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
-	"go/constant"
 	"go/token"
 	"go/types"
-	"math"
 	"strconv"
 	"strings"
 
 	api "github.com/OvyFlash/telegram-bot-api"
+	"github.com/expr-lang/expr"
 	"github.com/maxBezel/ledgerbot/model"
 )
 
@@ -73,25 +72,16 @@ func Transaction() Command {
 	}
 }
 
-func Eval(expr string) (float64, error) {
-	tv, err := types.Eval(token.NewFileSet(), nil, token.NoPos, expr)
+func Eval(s string) (float64, error) {
+	prog, err := expr.Compile(s, expr.AsFloat64())
 	if err != nil {
-		return 0, fmt.Errorf("parse/eval: %w", err)
+		return 0, fmt.Errorf("compile: %w", err)
 	}
-	if tv.Value == nil {
-		return 0, fmt.Errorf("not a constant expression")
+	out, err := expr.Run(prog, nil)
+	if err != nil {
+		return 0, fmt.Errorf("run: %w", err)
 	}
-
-	v := tv.Value
-	if v.Kind() == constant.Int {
-		v = constant.ToFloat(v)
-	}
-
-	f, _ := constant.Float64Val(v)
-	if math.IsNaN(f) || math.IsInf(f, 0) {
-		return 0, fmt.Errorf("non-finite result")
-	}
-	return f, nil
+	return out.(float64), nil
 }
 
 func splitExprAndComment(args string) (expr, comment string, err error) {
