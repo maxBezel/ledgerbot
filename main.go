@@ -6,28 +6,54 @@ import (
 	"log"
 
 	api "github.com/OvyFlash/telegram-bot-api"
+	"github.com/maxBezel/ledgerbot/model"
 	sql "github.com/maxBezel/ledgerbot/storage"
 )
 
-type Handler func(bot *api.BotAPI, chatId int64)
-
-func startHandler(bot *api.BotAPI, chatId int64) {
-	msg := api.NewMessage(chatId, startMsg)
-	if _, err := bot.Send(msg); err != nil {
-		log.Fatal("unable to send message")
-	}
+type Server struct {
+	bot     *api.BotAPI
+	storage *sql.Storage
 }
 
-func addAccountHandler(bot *api.BotAPI, chatId int64) {
-	msg := api.NewMessage(chatId, addAccountMsg)
-	if _, err := bot.Send(msg); err != nil {
-		log.Fatal("unable to send message")
+func (s *Server) HandleUpdates(update api.Update) {
+	if update.Message == nil {
+		return
 	}
+	command := update.Message.Command()
+
+	switch command {
+	case "start":
+		s.start(update.Message)
+	case "new":
+		s.newAccount(context.Background(), update.Message)
+	default:
+		return
+	}
+
 }
 
-var routes = map[string]Handler{
-	"start": startHandler,
-	"new":   addAccountHandler,
+func (s *Server) newAccount(ctx context.Context, msg *api.Message) {
+	accName := msg.CommandArguments()
+	if accName == "" {
+		s.bot.Send(api.NewMessage(msg.Chat.ID, "No account name given. Usage: /new accountName"))
+		return
+	}
+
+	// TODO: check if account already exists
+
+	acc := model.NewAccount(accName, msg.Chat.ID)
+	if err := s.storage.AddAccount(ctx, acc); err != nil {
+		log.Printf("unable to add new account %v", err)
+		return
+	}
+
+	s.bot.Send(api.NewMessage(msg.Chat.ID, "created new account "+accName))
+}
+
+func (s *Server) start(msg *api.Message) {
+	if _, err := s.bot.Send(api.NewMessage(msg.Chat.ID, startMsg)); err != nil {
+		log.Printf("unable to send message, %v", err)
+	}
 }
 
 const sqlitePath = "data/data.db"
@@ -54,24 +80,15 @@ func main() {
 		log.Fatal("failed to create bot API")
 	}
 
+	server := Server{
+		bot:     bot,
+		storage: storage,
+	}
+
 	config := api.NewUpdate(0)
 	updates := bot.GetUpdatesChan(config)
 
 	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
-		command := update.Message.Command()
-
-		if command == "" {
-			continue
-		}
-
-		handler, ok := routes[command]
-		if !ok {
-			continue
-		}
-
-		handler(bot, update.Message.Chat.ID)
+		server.HandleUpdates(update)
 	}
 }
