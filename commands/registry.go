@@ -8,6 +8,7 @@ import (
 
 	api "github.com/OvyFlash/telegram-bot-api"
 	"github.com/maxBezel/ledgerbot/model"
+	sqlite "github.com/maxBezel/ledgerbot/storage"
 )
 
 type Bot interface {
@@ -22,6 +23,7 @@ type Storage interface {
 	Exists(ctx context.Context, chatID int64, name string) (bool, error)
 	GetAccountID(ctx context.Context, chatID int64, name string) (int, error)
 	RevertTransaction(ctx context.Context, txsId int) (error)
+	ListAccountBalances(ctx context.Context, chatID int64) ([]sqlite.AccountBalance, error)
 }
 
 type Deps struct {

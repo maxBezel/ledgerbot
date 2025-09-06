@@ -42,6 +42,8 @@ func main() {
 	reg.Register(commands.New())
 	reg.Register(commands.Del())
 	reg.Register(commands.Transaction())
+	reg.Register(commands.Get())
+	
 
 	if _, err := bot.Request(api.NewSetMyCommands(reg.BotCommands()...)); err != nil {
 		log.Fatal(err)

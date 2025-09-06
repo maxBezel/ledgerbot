@@ -267,3 +267,36 @@ func (s *Storage) RevertTransaction(ctx context.Context, txsId int) (err error) 
 	}
 	return nil
 }
+
+type AccountBalance struct {
+	Name    string
+	Balance float64
+}
+
+func (s *Storage) ListAccountBalances(ctx context.Context, chatID int64) ([]AccountBalance, error) {
+	const q = `
+		SELECT name, balance
+		FROM accounts
+		WHERE chat_id = ?
+		ORDER BY created_at ASC
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, chatID)
+	if err != nil {
+		return nil, fmt.Errorf("query balances: %w", err)
+	}
+	defer rows.Close()
+
+	var out []AccountBalance
+	for rows.Next() {
+		var ab AccountBalance
+		if err := rows.Scan(&ab.Name, &ab.Balance); err != nil {
+			return nil, fmt.Errorf("scan balance: %w", err)
+		}
+		out = append(out, ab)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+	return out, nil
+}
