@@ -24,11 +24,7 @@ func Transaction() Command {
 			chatID := msg.Chat.ID
 			expression, note, err := splitExprAndComment(msg.CommandArguments())
 			if err != nil {
-				return err
-			}
-			
-			if expression == "" {
-				_, _ = d.Bot.Send(api.NewMessage(chatID, "No expression given. Usage: /<account name> expr"))
+				_, _ = d.Bot.Send(api.NewMessage(chatID, "Invalid expression. Usage: /<account name> expr"))
 				return nil
 			}
 
@@ -56,7 +52,7 @@ func Transaction() Command {
 				return err
 			}
 
-			txs := model.NewTransaction(accountId, val, note, usrId)
+			txs := model.NewTransaction(accountId, val, note, expression, usrId)
 			txsId, err := d.Storage.AddTransaction(ctx, txs)
 			if err != nil {
 				return err

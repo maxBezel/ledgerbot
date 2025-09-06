@@ -45,6 +45,7 @@ func (storage *Storage) Init(ctx context.Context) error {
 	 	account_id  INTEGER NOT NULL
 	 	REFERENCES accounts(id) ON DELETE CASCADE,
 	 	amount      REAL    NOT NULL,
+		expression	TEXT    NOT NULL,
 	 	note        TEXT,
 	 	created_at  TEXT    NOT NULL,
 	 	created_by  INTEGER
@@ -90,9 +91,9 @@ func (s *Storage) AddTransaction(ctx context.Context, txs *model.Transaction) (i
 	}
 
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO account_txns(account_id, amount, note, created_at, created_by)
-		 VALUES(?, ?, ?, ?, ?)`,
-		txs.AccountId, txs.Amount, txs.Note, txs.CreatedAt, txs.CreatedBy,
+		`INSERT INTO account_txns(account_id, amount, note, expression, created_at, created_by)
+		 VALUES(?, ?, ?, ?, ?, ?)`,
+		txs.AccountId, txs.Amount, txs.Note, txs.Expression, txs.CreatedAt, txs.CreatedBy,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert txs: %w", err)
