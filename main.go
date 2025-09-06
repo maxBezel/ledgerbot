@@ -137,6 +137,21 @@ func main() {
 		log.Fatal("failed to create bot API")
 	}
 
+	commands := []api.BotCommand{
+		{Command: "start", Description: "Начать диалог с ботом"},
+		{Command: "list",  Description: "Вывести список аккаунтов"},
+		{Command: "new",  Description: "Создать новый аккаунт"},
+		{Command: "del",  Description: "Удалить существующий аккаунт"},
+	}
+
+	cfg := api.NewSetMyCommands(commands...)
+	if _, err := bot.Request(cfg); err != nil {
+		log.Fatal(err)
+	}
+
+	def, _ := bot.GetMyCommands()
+	log.Printf("default=%v", def)
+
 	server := Server{
 		bot:     bot,
 		storage: storage,
