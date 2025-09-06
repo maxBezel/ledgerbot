@@ -3,7 +3,10 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"fmt"
+	"os"
+	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxBezel/ledgerbot/model"
@@ -299,4 +302,88 @@ func (s *Storage) ListAccountBalances(ctx context.Context, chatID int64) ([]Acco
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 	return out, nil
+}
+
+
+func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filename string) error {
+	const q = `
+		SELECT
+			a.name,
+			t.created_by,
+			t.expression,
+			t.amount,
+			a.balance,
+			t.note
+		FROM account_txns t
+		JOIN accounts a ON a.id = t.account_id
+		WHERE a.chat_id = ?
+		ORDER BY t.created_at DESC, t.id DESC
+	`
+
+	rows, err := s.db.QueryContext(ctx, q, chatId)
+	if err != nil {
+		return fmt.Errorf("WriteTransactionsCsv unable to query: %v", err)
+	}
+	defer rows.Close()
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("Unable to open file: %v", err)
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	if err := w.Write([]string{
+		"account", "userId", "expression", "eval", "account value", "comment",
+	}); err != nil {
+		return fmt.Errorf("write header: %w", err)
+	}
+
+	for rows.Next() {
+		var (
+			account   string
+			createdBy sql.NullInt64
+			expr      string
+			amount    float64
+			balance   float64
+			note      sql.NullString
+		)
+
+		if err := rows.Scan(&account, &createdBy, &expr, &amount, &balance, &note); err != nil {
+			return fmt.Errorf("scan row: %w", err)
+		}
+
+		userID := ""
+		if createdBy.Valid {
+			userID = strconv.FormatInt(createdBy.Int64, 10)
+		}
+
+		comment := ""
+		if note.Valid {
+			comment = note.String
+		}
+
+		if err := w.Write([]string{
+			account,
+			userID,
+			expr,
+			strconv.FormatFloat(amount, 'f', -1, 64),
+			strconv.FormatFloat(balance, 'f', -1, 64),
+			comment,
+		}); err != nil {
+			return fmt.Errorf("write row: %w", err)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows error: %w", err)
+	}
+
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("csv writer error: %w", err)
+	}
+
+	return nil
 }
