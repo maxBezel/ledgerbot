@@ -12,28 +12,28 @@ import (
 )
 
 func HandleCallback(ctx context.Context, d Deps, cq *api.CallbackQuery) {
-    data := cq.Data
-    if strings.HasPrefix(data, "undo:") {
-      handleUndo(ctx, d, cq, data)
-    } else if strings.HasPrefix(data, "statement:") {
-			handleStatement(ctx, d, cq, data)
-		}
-    _ = answerCB(d.Bot, cq, "Unknown action", true)
+	data := cq.Data
+	if strings.HasPrefix(data, "undo:") {
+		handleUndo(ctx, d, cq, data)
+	} else if strings.HasPrefix(data, "statement:") {
+		handleStatement(ctx, d, cq, data)
+	}
+	_ = answerCB(d.Bot, cq, "Unknown action", true)
 }
 
 func handleUndo(ctx context.Context, d Deps, cq *api.CallbackQuery, data string) {
 	txID, err := strconv.Atoi(strings.TrimPrefix(data, "undo:"))
 	if err == nil {
-			if err := d.Storage.RevertTransaction(ctx, int64(txID)); err != nil {
-					_ = answerCB(d.Bot, cq, "Failed to undo: "+err.Error(), true)
-					return
-			}
-			_ = answerCB(d.Bot, cq, "Transaction reverted", false)
-
-			edit := api.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-					cq.Message.Text+"\n\nReverted ✅")
-			_, _ = d.Bot.Send(edit)
+		if err := d.Storage.RevertTransaction(ctx, int64(txID)); err != nil {
+			_ = answerCB(d.Bot, cq, "Failed to undo: "+err.Error(), true)
 			return
+		}
+		_ = answerCB(d.Bot, cq, "Transaction reverted", false)
+
+		edit := api.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
+			cq.Message.Text+"\n\nДанное изменение отменено ✅")
+		_, _ = d.Bot.Send(edit)
+		return
 	}
 }
 
@@ -65,11 +65,12 @@ func handleStatement(ctx context.Context, d Deps, cq *api.CallbackQuery, data st
 }
 
 func answerCB(bot Bot, cq *api.CallbackQuery, text string, alert bool) error {
-    cb := api.NewCallback(cq.ID, text)
-    if alert {
-        cb.ShowAlert = true
-    }
+	cb := api.NewCallback(cq.ID, text)
+	if alert {
+		cb.ShowAlert = true
+	}
 
-    _, err := bot.Send(cb)
-    return err
+	_, err := bot.Send(cb)
+	return err
 }
+

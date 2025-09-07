@@ -14,6 +14,7 @@ const (
 	NoAccountsYet   ID = "no_accounts"
 	AccDoesNotExist ID = "acc_does_not_exist"
 	AccRemoved      ID = "acc_removed"
+	BalanceUpdated  ID = "balance_updated"
 )
 
 var rus = map[ID]string{
@@ -23,6 +24,7 @@ var rus = map[ID]string{
 	NoAccountsYet:   "У вас пока нет счетов. Используйте /new <имя_счета>",
 	AccDoesNotExist: "Счет %s не существует.",
 	AccRemoved:      "Аккаунт %s удален",
+	BalanceUpdated:  "Запомнил %s на счет %s \nБаланс: %s",
 }
 
 func T(id ID, args ...any) string {

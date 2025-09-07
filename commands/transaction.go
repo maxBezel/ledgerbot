@@ -10,6 +10,7 @@ import (
 
 	api "github.com/OvyFlash/telegram-bot-api"
 	"github.com/expr-lang/expr"
+	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 	"github.com/maxBezel/ledgerbot/model"
 )
 
@@ -23,7 +24,7 @@ func Transaction() Command {
 			chatID := msg.Chat.ID
 			args := msg.CommandArguments()
 			if accName == "" && strings.HasPrefix(msg.Text, "/") {
-    		accName, args = parseSlash(msg.Text)
+				accName, args = parseSlash(msg.Text)
 			}
 			expression, note, err := splitExprAndComment(args)
 			if err != nil {
@@ -34,11 +35,11 @@ func Transaction() Command {
 			}
 
 			exists, err := d.Storage.Exists(ctx, chatID, accName)
-			if err != nil { 
-				return err 
+			if err != nil {
+				return err
 			}
 			if !exists {
-				_, _ = d.Bot.Send(api.NewMessage(chatID, "Requested account does not exist"))
+				_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.AccDoesNotExist, accName)))
 				return nil
 			}
 
@@ -64,16 +65,20 @@ func Transaction() Command {
 				return err
 			}
 
-			btn := api.NewInlineKeyboardButtonData("↩️ Undo", fmt.Sprintf("undo:%d", txsId))
-			kb  := api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
+			btn := api.NewInlineKeyboardButtonData("↩️ Откатить это изменение", fmt.Sprintf("undo:%d", txsId))
+			kb := api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
 
-			msgOK := api.NewMessage(chatID,
-					"Balance successfully updated. New balance: "+
-					strconv.FormatFloat(newBalance, 'f', 2, 64),
+			reply := msgs.T(
+				msgs.BalanceUpdated,
+				strconv.FormatFloat(val, 'f', -1, 64),
+				accName,
+				strconv.FormatFloat(newBalance, 'f', 2, 64),
 			)
+
+			msgOK := api.NewMessage(chatID, reply)
 			msgOK.ReplyMarkup = kb
 			_, _ = d.Bot.Send(msgOK)
-					
+
 			return nil
 		},
 	}
@@ -120,21 +125,22 @@ func splitExprAndComment(args string) (expr, comment string, err error) {
 }
 
 func parseSlash(s string) (cmd, args string) {
-    s = strings.TrimSpace(s)
-    if !strings.HasPrefix(s, "/") {
-        return "", ""
-    }
-    s = s[1:]
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "/") {
+		return "", ""
+	}
+	s = s[1:]
 
-    i := strings.IndexByte(s, ' ')
-    if i < 0 {
-        cmd = s
-        return cmd, ""
-    }
-    cmd, args = s[:i], strings.TrimSpace(s[i+1:])
+	i := strings.IndexByte(s, ' ')
+	if i < 0 {
+		cmd = s
+		return cmd, ""
+	}
+	cmd, args = s[:i], strings.TrimSpace(s[i+1:])
 
-    if at := strings.IndexByte(cmd, '@'); at >= 0 {
-        cmd = cmd[:at]
-    }
-    return cmd, args
+	if at := strings.IndexByte(cmd, '@'); at >= 0 {
+		cmd = cmd[:at]
+	}
+	return cmd, args
 }
+
