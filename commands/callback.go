@@ -24,7 +24,7 @@ func HandleCallback(ctx context.Context, d Deps, cq *api.CallbackQuery) {
 func handleUndo(ctx context.Context, d Deps, cq *api.CallbackQuery, data string) {
 	txID, err := strconv.Atoi(strings.TrimPrefix(data, "undo:"))
 	if err == nil {
-			if err := d.Storage.RevertTransaction(ctx, txID); err != nil {
+			if err := d.Storage.RevertTransaction(ctx, int64(txID)); err != nil {
 					_ = answerCB(d.Bot, cq, "Failed to undo: "+err.Error(), true)
 					return
 			}

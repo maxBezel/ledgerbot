@@ -20,7 +20,7 @@ type Storage interface {
 	AdjustBalance(ctx context.Context, chatId int64, name string, delta float64) (float64, error)
 	Exists(ctx context.Context, chatID int64, name string) (bool, error)
 	GetAccountID(ctx context.Context, chatID int64, name string) (int, error)
-	RevertTransaction(ctx context.Context, txsId int) (error)
+	RevertTransaction(ctx context.Context, txsId int64) (error)
 	ListAccountBalances(ctx context.Context, chatID int64) ([]sqlite.AccountBalance, error)
 	WriteTransactionsCsv(ctx context.Context, chatId int64, filename string) error
 }

@@ -228,7 +228,7 @@ func (s *Storage) GetAccountID(ctx context.Context, chatID int64, name string) (
 	return id, nil
 }
 
-func (s *Storage) RevertTransaction(ctx context.Context, txsId int) (err error) {
+func (s *Storage) RevertTransaction(ctx context.Context, txsId int64) (err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -258,13 +258,15 @@ func (s *Storage) RevertTransaction(ctx context.Context, txsId int) (err error) 
 		return fmt.Errorf("account not found for transaction")
 	}
 
-	const del = `DELETE FROM account_txns WHERE id = ?`
-	res, err = tx.ExecContext(ctx, del, txsId)
-	if err != nil {
-		return fmt.Errorf("delete tx: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("transaction already deleted")
+	if txsId != 0 {
+		const del = `DELETE FROM account_txns WHERE id = ?`
+		res, err = tx.ExecContext(ctx, del, txsId)
+		if err != nil {
+			return fmt.Errorf("delete tx: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("transaction already deleted")
+		}
 	}
 
 	if err = tx.Commit(); err != nil {

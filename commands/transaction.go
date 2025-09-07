@@ -60,6 +60,7 @@ func Transaction() Command {
 			txs := model.NewTransaction(accountId, val, note, newBalance, expression, usrId)
 			txsId, err := d.Storage.AddTransaction(ctx, txs)
 			if err != nil {
+				d.Storage.RevertTransaction(ctx, txsId)
 				return err
 			}
 
