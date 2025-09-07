@@ -51,6 +51,7 @@ func (storage *Storage) Init(ctx context.Context) error {
 	 	REFERENCES accounts(id) ON DELETE CASCADE,
 	 	amount      REAL    NOT NULL,
 		expression	TEXT    NOT NULL,
+		balance	    REAL    NOT NULL,
 	 	note        TEXT,
 	 	created_at  TEXT    NOT NULL,
 	 	created_by  INTEGER
@@ -96,9 +97,9 @@ func (s *Storage) AddTransaction(ctx context.Context, txs *model.Transaction) (i
 	}
 
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO account_txns(account_id, amount, note, expression, created_at, created_by)
-		 VALUES(?, ?, ?, ?, ?, ?)`,
-		txs.AccountId, txs.Amount, txs.Note, txs.Expression, txs.CreatedAt, txs.CreatedBy,
+		`INSERT INTO account_txns(account_id, amount, note, balance, expression, created_at, created_by)
+		 VALUES(?, ?, ?, ?, ?, ?, ?)`,
+		txs.AccountId, txs.Amount, txs.Note, txs.Balance, txs.Expression, txs.CreatedAt, txs.CreatedBy,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert txs: %w", err)
@@ -313,7 +314,7 @@ func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filena
 			t.created_at,
 			t.expression,
 			t.amount,
-			a.balance,
+			t.balance,
 			t.note
 		FROM account_txns t
 		JOIN accounts a ON a.id = t.account_id

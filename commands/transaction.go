@@ -57,7 +57,7 @@ func Transaction() Command {
 				return err
 			}
 
-			txs := model.NewTransaction(accountId, val, note, expression, usrId)
+			txs := model.NewTransaction(accountId, val, note, newBalance, expression, usrId)
 			txsId, err := d.Storage.AddTransaction(ctx, txs)
 			if err != nil {
 				return err
