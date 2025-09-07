@@ -15,8 +15,18 @@ func New() Command {
 		Hidden: false,
 		Handle: func(ctx context.Context, d Deps, msg *api.Message) error {
 			accName := msg.CommandArguments()
+			chatID := msg.Chat.ID
 			if accName == "" {
 				_, _ = d.Bot.Send(api.NewMessage(msg.Chat.ID, msgs.T(msgs.NoAccountName)))
+				return nil
+			}
+
+			exists, err := d.Storage.Exists(ctx, chatID, accName)
+			if err != nil {
+				return err
+			}
+			if exists {
+				_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.AccAlreadyExist)))
 				return nil
 			}
 

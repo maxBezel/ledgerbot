@@ -8,23 +8,27 @@ import (
 type ID string
 
 const (
-	Start           ID = "start"
-	AccountCreated  ID = "account_created"
-	NoAccountName   ID = "no_name"
-	NoAccountsYet   ID = "no_accounts"
-	AccDoesNotExist ID = "acc_does_not_exist"
-	AccRemoved      ID = "acc_removed"
-	BalanceUpdated  ID = "balance_updated"
+	Start                 ID = "start"
+	AccountCreated        ID = "account_created"
+	NoAccountName         ID = "no_name"
+	NoAccountsYet         ID = "no_accounts"
+	AccDoesNotExist       ID = "acc_does_not_exist"
+	AccAlreadyExist       ID = "acc_already_exist"
+	AccRemoved            ID = "acc_removed"
+	BalanceUpdated        ID = "balance_updated"
+	UnsuccessfulOperation ID = "unsuccessful_operation"
 )
 
 var rus = map[ID]string{
-	Start:           "Привет",
-	AccountCreated:  "Аккаунт %s создан",
-	NoAccountName:   "Не указано имя счета. Пример: /<команда> <имя_счета>",
-	NoAccountsYet:   "У вас пока нет счетов. Используйте /new <имя_счета>",
-	AccDoesNotExist: "Счет %s не существует.",
-	AccRemoved:      "Аккаунт %s удален",
-	BalanceUpdated:  "Запомнил %s на счет %s \nБаланс: %s",
+	Start:                 "Привет",
+	AccountCreated:        "Счет %s создан",
+	NoAccountName:         "Не указано имя счета. Пример: /<команда> <имя_счета>",
+	NoAccountsYet:         "У вас пока нет счетов. Используйте /new <имя_счета>",
+	AccDoesNotExist:       "Счет %s не существует.",
+	AccAlreadyExist:       "Счет с таким именем уже существует",
+	AccRemoved:            "Счет %s удален",
+	BalanceUpdated:        "Запомнил %s на счет %s \nБаланс: %s",
+	UnsuccessfulOperation: "Неудалось выполнить операцию",
 }
 
 func T(id ID, args ...any) string {

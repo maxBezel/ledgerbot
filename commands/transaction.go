@@ -30,7 +30,7 @@ func Transaction() Command {
 			expression, note, err := splitExprAndComment(args)
 			if err != nil {
 				if err.Error() != "empty arguments" {
-					_, _ = d.Bot.Send(api.NewMessage(chatID, "Invalid expression. Usage: /<account name> expr"))
+					_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.NoAccountName)))
 				}
 				return nil
 			}

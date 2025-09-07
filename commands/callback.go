@@ -9,6 +9,7 @@ import (
 	"time"
 
 	api "github.com/OvyFlash/telegram-bot-api"
+	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 )
 
 func HandleCallback(ctx context.Context, d Deps, cq *api.CallbackQuery) {
@@ -25,7 +26,7 @@ func handleUndo(ctx context.Context, d Deps, cq *api.CallbackQuery, data string)
 	txID, err := strconv.Atoi(strings.TrimPrefix(data, "undo:"))
 	if err == nil {
 		if err := d.Storage.RevertTransaction(ctx, int64(txID)); err != nil {
-			_ = answerCB(d.Bot, cq, "Failed to undo: "+err.Error(), true)
+			_ = answerCB(d.Bot, cq, msgs.T(msgs.UnsuccessfulOperation), true)
 			return
 		}
 		_ = answerCB(d.Bot, cq, "Transaction reverted", false)
