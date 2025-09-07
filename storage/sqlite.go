@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -367,13 +368,14 @@ func (s *Storage) WriteTransactionsCsv(ctx context.Context, chatId int64, filena
 		}
 
 		createdAtOut := createdAt
-		if t, err := time.Parse(time.RFC3339Nano, createdAt); err == nil {
-			createdAtOut = t.Format("02-01-2006 15:04:05")
-		} else if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
-			createdAtOut = t.Format("2006-01-02 15:04:05")
-		} else if t, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
-			createdAtOut = t.Format("2006-01-02 15:04:05")
+
+		sec, err := strconv.ParseInt(strings.TrimSpace(createdAt), 10, 64)
+		if err != nil { 
+			return err 
 		}
+		t := time.Unix(sec, 0)
+
+		createdAtOut = t.Format("02-01-2006 15:04:05")
 
 		if err := w.Write([]string{
 			account,
