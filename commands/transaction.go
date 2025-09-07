@@ -21,9 +21,15 @@ func Transaction() Command {
 			accName := msg.Command()
 			usrId := msg.From.ID
 			chatID := msg.Chat.ID
-			expression, note, err := splitExprAndComment(msg.CommandArguments())
+			args := msg.CommandArguments()
+			if accName == "" && strings.HasPrefix(msg.Text, "/") {
+    		accName, args = parseSlash(msg.Text)
+			}
+			expression, note, err := splitExprAndComment(args)
 			if err != nil {
-				_, _ = d.Bot.Send(api.NewMessage(chatID, "Invalid expression. Usage: /<account name> expr"))
+				if err.Error() != "empty arguments" {
+					_, _ = d.Bot.Send(api.NewMessage(chatID, "Invalid expression. Usage: /<account name> expr"))
+				}
 				return nil
 			}
 
@@ -110,4 +116,24 @@ func splitExprAndComment(args string) (expr, comment string, err error) {
 	expr = strings.TrimSpace(s[:lastOK])
 	comment = strings.TrimSpace(s[lastOK:])
 	return
+}
+
+func parseSlash(s string) (cmd, args string) {
+    s = strings.TrimSpace(s)
+    if !strings.HasPrefix(s, "/") {
+        return "", ""
+    }
+    s = s[1:]
+
+    i := strings.IndexByte(s, ' ')
+    if i < 0 {
+        cmd = s
+        return cmd, ""
+    }
+    cmd, args = s[:i], strings.TrimSpace(s[i+1:])
+
+    if at := strings.IndexByte(cmd, '@'); at >= 0 {
+        cmd = cmd[:at]
+    }
+    return cmd, args
 }
