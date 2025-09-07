@@ -4,6 +4,7 @@ import (
 	"context"
 
 	api "github.com/OvyFlash/telegram-bot-api"
+	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 	"github.com/maxBezel/ledgerbot/model"
 )
 
@@ -14,7 +15,7 @@ func New() Command {
 		Handle: func(ctx context.Context, d Deps, msg *api.Message) error {
 			accName := msg.CommandArguments()
 			if accName == "" {
-				_, _ = d.Bot.Send(api.NewMessage(msg.Chat.ID, "No account name given. Usage: /new accountName"))
+				_, _ = d.Bot.Send(api.NewMessage(msg.Chat.ID, msgs.T(msgs.NoAccountName)))
 				return nil
 			}
 
@@ -23,8 +24,10 @@ func New() Command {
 				return err
 			}
 
-			_, _ = d.Bot.Send(api.NewMessage(msg.Chat.ID, "created new account " + accName))
+			reply := msgs.T(msgs.AccountCreated, accName)
+			_, _ = d.Bot.Send(api.NewMessage(msg.Chat.ID, reply))
 			return nil
 		},
 	}
 }
+

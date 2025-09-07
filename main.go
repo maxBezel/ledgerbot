@@ -35,32 +35,30 @@ func main() {
 	}
 
 	deps := commands.Deps{Bot: bot, Storage: storage}
-	reg  := commands.NewRegistry(deps)
+	reg := commands.NewRegistry(deps)
 
-	reg.Register(commands.Start(startMsg))
-	reg.Register(commands.List())
+	reg.Register(commands.Start())
 	reg.Register(commands.New())
 	reg.Register(commands.Del())
 	reg.Register(commands.Transaction())
 	reg.Register(commands.Get())
-	
 
 	if _, err := bot.Request(api.NewSetMyCommands(reg.BotCommands()...)); err != nil {
 		log.Fatal(err)
 	}
 
-	config  := api.NewUpdate(0)
+	config := api.NewUpdate(0)
 	updates := bot.GetUpdatesChan(config)
 	ctx := context.Background()
 
 	for u := range updates {
 
 		if u.CallbackQuery != nil {
-        commands.HandleCallback(ctx, deps, u.CallbackQuery)
-        continue
-    }
+			commands.HandleCallback(ctx, deps, u.CallbackQuery)
+			continue
+		}
 		if u.Message != nil {
-        reg.Handle(ctx, u.Message)
-    }
+			reg.Handle(ctx, u.Message)
+		}
 	}
 }

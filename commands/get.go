@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	api "github.com/OvyFlash/telegram-bot-api"
+	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 )
 
 func Get() Command {
@@ -24,7 +25,7 @@ func Get() Command {
 				return err
 			}
 			if len(bals) == 0 {
-				_, _ = d.Bot.Send(api.NewMessage(chatID, "У вас пока нет аккаунтов"))
+				_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.NoAccountsYet)))
 				return nil
 			}
 
@@ -122,3 +123,4 @@ func insertSep(s string, sep rune) string {
 	}
 	return b.String()
 }
+

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	api "github.com/OvyFlash/telegram-bot-api"
+	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 )
 
 func Del() Command {
@@ -14,25 +15,28 @@ func Del() Command {
 			chatID := msg.Chat.ID
 			accName := msg.CommandArguments()
 			if accName == "" {
-				_, _ = d.Bot.Send(api.NewMessage(chatID, "No account name given. Usage: /del accountName"))
+				_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.NoAccountName)))
 				return nil
 			}
 
 			exists, err := d.Storage.Exists(ctx, chatID, accName)
-			if err != nil { 
-				return err 
+			if err != nil {
+				return err
 			}
 			if !exists {
-				_, _ = d.Bot.Send(api.NewMessage(chatID, "Requested account does not exist"))
+				reply := msgs.T(msgs.AccDoesNotExist, accName)
+				_, _ = d.Bot.Send(api.NewMessage(chatID, reply))
 				return nil
 			}
 
-			if err := d.Storage.RemoveAccount(ctx, chatID, accName); err != nil { 
-				return err 
+			if err := d.Storage.RemoveAccount(ctx, chatID, accName); err != nil {
+				return err
 			}
 
-			_, _ = d.Bot.Send(api.NewMessage(chatID, "account successfully removed"))
+			reply := msgs.T(msgs.AccRemoved, accName)
+			_, _ = d.Bot.Send(api.NewMessage(chatID, reply))
 			return nil
 		},
 	}
 }
+
