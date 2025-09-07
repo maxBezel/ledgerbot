@@ -69,7 +69,7 @@ func Get() Command {
 			out := api.NewMessage(chatID, b.String())
 			out.ParseMode = "HTML"
 
-			btn := api.NewInlineKeyboardButtonData("Получить выписку", "statement")
+			btn := api.NewInlineKeyboardButtonData("Получить выписку", fmt.Sprintf("statement:%d", chatID))
 			out.ReplyMarkup = api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
 
 			_, _ = d.Bot.Send(out)

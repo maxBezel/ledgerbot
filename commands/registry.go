@@ -3,8 +3,6 @@ package commands
 import (
 	"context"
 	"log"
-	"strconv"
-	"strings"
 
 	api "github.com/OvyFlash/telegram-bot-api"
 	"github.com/maxBezel/ledgerbot/model"
@@ -24,6 +22,7 @@ type Storage interface {
 	GetAccountID(ctx context.Context, chatID int64, name string) (int, error)
 	RevertTransaction(ctx context.Context, txsId int) (error)
 	ListAccountBalances(ctx context.Context, chatID int64) ([]sqlite.AccountBalance, error)
+	WriteTransactionsCsv(ctx context.Context, chatId int64, filename string) error
 }
 
 type Deps struct {
@@ -78,34 +77,4 @@ func (r *Registry) BotCommands() []api.BotCommand {
 		out = append(out, api.BotCommand{Command: c.Name, Description: c.Description})
 	}
 	return out
-}
-
-func HandleCallback(ctx context.Context, d Deps, cq *api.CallbackQuery) {
-    data := cq.Data
-    if strings.HasPrefix(data, "undo:") {
-        txID, err := strconv.Atoi(strings.TrimPrefix(data, "undo:"))
-        if err == nil {
-            if err := d.Storage.RevertTransaction(ctx, txID); err != nil {
-                _ = answerCB(d.Bot, cq, "Failed to undo: "+err.Error(), true)
-                return
-            }
-            _ = answerCB(d.Bot, cq, "Transaction reverted", false)
-
-            edit := api.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
-                cq.Message.Text+"\n\nReverted ✅")
-            _, _ = d.Bot.Send(edit)
-            return
-        }
-    }
-    _ = answerCB(d.Bot, cq, "Unknown action", true)
-}
-
-func answerCB(bot Bot, cq *api.CallbackQuery, text string, alert bool) error {
-    cb := api.NewCallback(cq.ID, text)
-    if alert {
-        cb.ShowAlert = true
-    }
-
-    _, err := bot.Send(cb)
-    return err
 }
