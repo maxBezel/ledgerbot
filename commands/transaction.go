@@ -18,6 +18,7 @@ func Transaction() Command {
 	return Command{
 		Name:        "transaction",
 		Description: "Выполняет транзакцию для указанного аккаунта",
+		Hidden: true,
 		Handle: func(ctx context.Context, d Deps, msg *api.Message) error {
 			accName := msg.Command()
 			usrId := msg.From.ID

@@ -11,6 +11,7 @@ func Del() Command {
 	return Command{
 		Name:        "del",
 		Description: "Удалить существующий аккаунт",
+		Hidden: false,
 		Handle: func(ctx context.Context, d Deps, msg *api.Message) error {
 			chatID := msg.Chat.ID
 			accName := msg.CommandArguments()

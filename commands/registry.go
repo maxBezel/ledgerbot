@@ -35,6 +35,7 @@ type Handler func(ctx context.Context, d Deps, msg *api.Message) error
 type Command struct {
 	Name        string
 	Description string
+	Hidden 		  bool
 	Handle      Handler
 }
 
@@ -74,6 +75,9 @@ func (r *Registry) Handle(ctx context.Context, msg *api.Message) bool {
 func (r *Registry) BotCommands() []api.BotCommand {
 	out := make([]api.BotCommand, 0, len(r.m))
 	for _, c := range r.m {
+		if c.Hidden {
+			continue
+		}
 		out = append(out, api.BotCommand{Command: c.Name, Description: c.Description})
 	}
 	return out

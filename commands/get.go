@@ -17,6 +17,7 @@ func Get() Command {
 	return Command{
 		Name:        "get",
 		Description: "Возвращает баланс всех аккаунтов",
+		Hidden: false,
 		Handle: func(ctx context.Context, d Deps, msg *api.Message) error {
 			chatID := msg.Chat.ID
 

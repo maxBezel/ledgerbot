@@ -12,6 +12,7 @@ func New() Command {
 	return Command{
 		Name:        "new",
 		Description: "Создать новый аккаунт",
+		Hidden: false,
 		Handle: func(ctx context.Context, d Deps, msg *api.Message) error {
 			accName := msg.CommandArguments()
 			if accName == "" {
