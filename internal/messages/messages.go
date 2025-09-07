@@ -26,7 +26,7 @@ var rus = map[ID]string{
 	NoAccountName:         "Не указано имя счета. Пример: /<команда> <имя_счета>",
 	NoAccountsYet:         "У вас пока нет счетов. Используйте /new <имя_счета>",
 	NoExpression:          "Неверный формат комманды. Используйте /<имя счета> <выражение> [комментарий]",
-	AccDoesNotExist:       "Счет %s не существует.",
+	AccDoesNotExist:       "Счет %s не существует.❌",
 	AccAlreadyExist:       "Счет с таким именем уже существует",
 	AccRemoved:            "Счет %s удален",
 	BalanceUpdated:        "Запомнил %s на счет %s \nБаланс: %s",
