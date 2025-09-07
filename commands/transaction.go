@@ -48,29 +48,26 @@ func Transaction() Command {
 				return err
 			}
 
-			newBalance, err := d.Storage.AdjustBalance(ctx, chatID, accName, val)
-			if err != nil {
-				return err
-			}
-
 			accountId, err := d.Storage.GetAccountID(ctx, chatID, accName)
 			if err != nil {
 				return err
 			}
 
-			txs := model.NewTransaction(accountId, val, note, newBalance, expression, usrId)
-			txsId, err := d.Storage.AddTransaction(ctx, txs)
+			balance, err := d.Storage.GetCurrentBalance(ctx, accountId)
 			if err != nil {
-				d.Storage.RevertTransaction(ctx, txsId)
 				return err
 			}
+
+			newBalance := balance + val
+			txs := model.NewTransaction(accountId, val, note, newBalance, expression, usrId)
+			newBalance, txsId, err := d.Storage.ApplyDeltaAndLog(ctx, chatID, accName, val, txs)
 
 			btn := api.NewInlineKeyboardButtonData("↩️ Откатить это изменение", fmt.Sprintf("undo:%d", txsId))
 			kb := api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
 
 			reply := msgs.T(
 				msgs.BalanceUpdated,
-				strconv.FormatFloat(val, 'f', -1, 64),
+				strconv.FormatFloat(val, 'f', 2, 64),
 				accName,
 				strconv.FormatFloat(newBalance, 'f', 2, 64),
 			)
