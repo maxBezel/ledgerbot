@@ -6,6 +6,60 @@ import (
 	"unicode"
 )
 
+/*
+---------------------
+SplitExprAndComment
+---------------------
+1. Сканирует строку слева направо, игнорируя пробелы.
+2. Использует конечный автомат с двумя состояниями:
+   - expectOperand ("ожидается операнд") - на этом шаге допустимы число,
+     открывающая скобка, унарные + или -, либо начало дробного числа с точки.
+   - expectOperator ("ожидается оператор") - на этом шаге допустимы знаки
+     +, -, *, /, ^, %, либо закрывающая скобка.
+3. Ведёт счётчик скобок (paren), чтобы отслеживать баланс скобок (только круглых, на остальные похуй).
+4. Когда встречается корректный операнд - переключается в состояние "ожидается оператор".
+   Когда встречается корректный оператор - переключается в состояние "ожидается операнд".
+5. В каждый момент, когда выражение завершено корректно (paren == 0, состояние expectOperator),
+   запоминается индекс конца (lastGood).
+6. При встрече символа, который не подходит ни под одно состояние, разбор прекращается.
+   Всё, что идёт после lastGood, считается комментарием.
+7. Если в строке не найдено ни одного корректного выражения - возвращается ошибка, т.к нечего эвалюировать.
+8. Перед возвратом вызывается вспомогательная функция rewritePostfixPercentChains,
+
+
+- Поддерживаются только числа, скобки и базовые арифметические операторы (+, -, *, /, ^, %).
+- Учитывается унарный плюс/минус.
+- Нет поддержки переменных, функций (например sin(x)), идентификаторов.
+  Всё это попадает в "комментарий".
+- Числа могут быть целыми или с точкой, форматы ".5" и "1." допустимы.
+- Нет поддержки экспоненциальной формы (1e-3), нет разделителей разрядов (1_000).
+- Несбалансированные скобки приводят к обрезке выражения до ошибки.
+- Если строка оканчивается оператором (например "1+"), то выражение считается неполным,
+  и в результат попадает только последняя корректная часть.
+
+---------------------
+rewritePostfixPercentChains
+---------------------
+отвечает за переписывание выражений с постфиксными процентами. Пример: "200%%" → "((200/100)/100)".
+expr какает в штаны с этого :(
+
+1. Строка разбирается посимвольно в двух состояниях:
+   - wantOperand ("ожидается операнд") - число или скобки;
+   - wantOperator ("ожидается оператор") - знак операции после операнда.
+2. Когда встречается число или выражение в скобках, оно запоминается как последний операнд.
+3. Когда после операнда идёт знак '%':
+   - Если за ним следует новый операнд (например "50%3"), то '%' трактуется как обычный оператор "остаток от деления".
+   - Если операнда нет → начинается цепочка постфиксных процентов. Считается количество подряд идущих '%' (с пробелами).
+     Последний операнд переписывается как последовательность делений на 100:
+       "200%"  → "(200/100)"
+       "200%%" → "((200/100)/100)"
+       и т.д.
+4. Всё остальное копируется в результат без изменений.
+
+- Если '%' стоит в неожиданном месте, строка может быть переписана только частично.
+*/
+
+
 type state int
 
 const (
@@ -19,27 +73,21 @@ type scanner struct {
 	i int
 }
 
-func newScanner(s string) *scanner { return &scanner{r: []rune(s), n: len([]rune(s)), i: 0} }
-
-func (s *scanner) eof() bool { return s.i >= s.n }
-
+func newScanner(s string) *scanner { rr := []rune(s); return &scanner{r: rr, n: len(rr)} }
+func (s *scanner) eof() bool       { return s.i >= s.n }
 func (s *scanner) cur() rune {
 	if s.eof() {
 		return 0
 	}
 	return s.r[s.i]
 }
-
 func (s *scanner) advance() { s.i++ }
-
 func (s *scanner) skipSpaces() {
 	for !s.eof() && unicode.IsSpace(s.r[s.i]) {
 		s.i++
 	}
 }
-
-func (s *scanner) peekNextNonSpace() (r rune, ok bool, idx int) {
-	j := s.i + 1
+func (s *scanner) nextNonSpaceFrom(j int) (r rune, ok bool, idx int) {
 	for j < s.n && unicode.IsSpace(s.r[j]) {
 		j++
 	}
@@ -48,10 +96,8 @@ func (s *scanner) peekNextNonSpace() (r rune, ok bool, idx int) {
 	}
 	return 0, false, j
 }
-
-// сканирование числа (инты и флоты). Возвращает (начало, конец, ok).
-func (s *scanner) scanNumber() (int, int, bool) {
-	start := s.i
+func (s *scanner) scanNumber() (start, end int, ok bool) {
+	start = s.i
 	seenDigit := false
 	seenDot := false
 	for !s.eof() {
@@ -74,69 +120,31 @@ func (s *scanner) scanNumber() (int, int, bool) {
 	}
 	return start, s.i - 1, true
 }
-
-// сканирование сбалансированных скобок. Возвращает (начало, конец, ok).
-func (s *scanner) scanBalancedParen() (int, int, bool) {
-	if s.cur() != '(' {
-		return 0, 0, false
-	}
-	start := s.i
-	depth := 1
-	s.i++
-	for !s.eof() && depth > 0 {
-		switch s.cur() {
-		case '(':
-			depth++
-		case ')':
-			depth--
-		}
-		s.i++
-	}
-	if depth == 0 {
-		return start, s.i - 1, true
-	}
-	// несбалансировано, тогда сбрасываем
-	s.i = start
-	return 0, 0, false
-}
-
-// проверяет, начинается ли с позиции операнд (число, скобки, точка, или с унарного знака)
 func (s *scanner) nextStartsOperand(from int) bool {
-	j := from
-	for j < s.n && unicode.IsSpace(s.r[j]) {
-		j++
-	}
-	if j >= s.n {
+	r, ok, idx := s.nextNonSpaceFrom(from)
+	if !ok {
 		return false
 	}
-	ch := s.r[j]
-	if unicode.IsDigit(ch) || ch == '(' || ch == '.' {
+	if unicode.IsDigit(r) || r == '(' || r == '.' {
 		return true
 	}
-	if ch == '+' || ch == '-' {
-		j++
-		for j < s.n && unicode.IsSpace(s.r[j]) {
-			j++
-		}
-		if j < s.n {
-			ch2 := s.r[j]
-			return unicode.IsDigit(ch2) || ch2 == '(' || ch2 == '.'
-		}
+
+	if r == '-' {
+		r2, ok2, _ := s.nextNonSpaceFrom(idx + 1)
+		return ok2 && (unicode.IsDigit(r2) || r2 == '(' || r2 == '.')
 	}
 	return false
 }
 
 func SplitExprAndComment(s string) (string, string, error) {
 	sc := newScanner(s)
-
 	st := expectOperand
 	paren := 0
-	lastGoodRuneIdx := -1
+	lastGood := -1
 
-	// фиксируем позицию, где выражение может закончиться
 	markGood := func(i int) {
 		if st == expectOperator && paren == 0 {
-			lastGoodRuneIdx = i
+			lastGood = i
 		}
 	}
 
@@ -146,9 +154,8 @@ func SplitExprAndComment(s string) (string, string, error) {
 		r := sc.cur()
 
 		if st == expectOperand {
-			// унарный +/-
 			if r == '+' || r == '-' {
-				if sc.nextStartsOperand(sc.i+1) {
+				if sc.nextStartsOperand(sc.i + 1) {
 					sc.advance()
 					sc.skipSpaces()
 					continue
@@ -156,22 +163,16 @@ func SplitExprAndComment(s string) (string, string, error) {
 				break
 			}
 
-			// скобочное подвыражение
 			if r == '(' {
-				_, _, ok := sc.scanBalancedParen()
-				if !ok {
-					break
-				}
-				st = expectOperator
+				paren++
+				sc.advance()
 				sc.skipSpaces()
-				markGood(sc.i - 1)
 				continue
 			}
 
-			// число
+			// number
 			if unicode.IsDigit(r) || r == '.' {
-				_, _, ok := sc.scanNumber()
-				if !ok {
+				if _, _, ok := sc.scanNumber(); !ok {
 					break
 				}
 				st = expectOperator
@@ -181,7 +182,7 @@ func SplitExprAndComment(s string) (string, string, error) {
 			}
 
 			break
-		} else { // ожидаем оператор
+		} else {
 			if r == ')' {
 				if paren == 0 {
 					break
@@ -194,21 +195,20 @@ func SplitExprAndComment(s string) (string, string, error) {
 			}
 
 			if r == '%' {
-				// если после % идёт операнд то бинарный модуль
-				if sc.nextStartsOperand(sc.i + 1) {
+				rn, ok, _ := sc.nextNonSpaceFrom(sc.i + 1)
+				if ok && (unicode.IsDigit(rn) || rn == '(' || rn == '.' || rn == '-') && sc.nextStartsOperand(sc.i+1) {
 					sc.advance()
 					st = expectOperand
 					sc.skipSpaces()
 					continue
 				}
-				// иначе постфиксный процент
+
 				sc.advance()
 				sc.skipSpaces()
 				markGood(sc.i - 1)
 				continue
 			}
 
-			// бинарные операторы
 			if r == '+' || r == '-' || r == '*' || r == '/' || r == '^' {
 				sc.advance()
 				st = expectOperand
@@ -222,115 +222,179 @@ func SplitExprAndComment(s string) (string, string, error) {
 
 	markGood(sc.i - 1)
 
-	if lastGoodRuneIdx < 0 {
-		return "", "", fmt.Errorf("No valid math expr")
+	if lastGood < 0 {
+		return "", "", fmt.Errorf("no valid math expression found")
 	}
 
-	rawExpr := strings.TrimSpace(string(sc.r[:lastGoodRuneIdx+1]))
-	comment := strings.TrimSpace(string(sc.r[lastGoodRuneIdx+1:]))
+	rawExpr := strings.TrimSpace(string(sc.r[:lastGood+1]))
+	comment := strings.TrimSpace(string(sc.r[lastGood+1:]))
 
-	// переписываем постфиксные %
-	exprReady := rewritePostfixPercentWithScanner(rawExpr)
+	rewritten := rewritePostfixPercentChains(rawExpr)
 
-	return exprReady, comment, nil
+	return rewritten, comment, nil
 }
 
-//меняем X% на (X/100), оставляя бинарный % без изменений, т.к в expr постфиксный % не работает
-func rewritePostfixPercentWithScanner(expr string) string {
-	sc := newScanner(expr)
-	st := expectOperand
-
-	lastStart, lastEnd := -1, -1
+func rewritePostfixPercentChains(expr string) string {
+	r := []rune(expr)
+	n := len(r)
 
 	var out strings.Builder
 	lastFlush := 0
 
-	flush := func(idx int) {
-		if idx > lastFlush {
-			out.WriteString(string(sc.r[lastFlush:idx]))
-			lastFlush = idx
+	lastStart, lastEnd := -1, -1
+
+	isSpace := func(rr rune) bool { return unicode.IsSpace(rr) }
+	skipSpacesFrom := func(i int) int {
+		for i < n && isSpace(r[i]) {
+			i++
 		}
+		return i
 	}
 
-	recordOperand := func(start, end int) {
-		lastStart, lastEnd = start, end
+	nextStartsOperand := func(from int) bool {
+		j := skipSpacesFrom(from)
+		if j >= n {
+			return false
+		}
+		ch := r[j]
+		if unicode.IsDigit(ch) || ch == '(' || ch == '.' {
+			return true
+		}
+		if ch == '-' {
+			j++
+			j = skipSpacesFrom(j)
+			if j < n {
+				ch2 := r[j]
+				return unicode.IsDigit(ch2) || ch2 == '(' || ch2 == '.'
+			}
+		}
+		return false
 	}
 
-	sc.skipSpaces()
-	for !sc.eof() {
-		ch := sc.cur()
+	type st int
+	const (
+		wantOperand st = iota
+		wantOperator
+	)
+	state := wantOperand
 
-		if st == expectOperand {
+	i := 0
+	for i < n {
+		ch := r[i]
+
+		switch state {
+		case wantOperand:
 			if ch == '+' || ch == '-' {
-				if sc.nextStartsOperand(sc.i + 1) {
-					sc.advance()
-					sc.skipSpaces()
+				j := skipSpacesFrom(i + 1)
+				if j < n && (unicode.IsDigit(r[j]) || r[j] == '(' || r[j] == '.') {
+					i++
+					i = skipSpacesFrom(i)
 					continue
 				}
 			}
 			if ch == '(' {
-				start, end, ok := sc.scanBalancedParen()
-				if !ok {
-					break
+				start := i
+				depth := 1
+				i++
+				for i < n && depth > 0 {
+					if r[i] == '(' {
+						depth++
+					} else if r[i] == ')' {
+						depth--
+					}
+					i++
 				}
-				recordOperand(start, end)
-				st = expectOperator
-				sc.skipSpaces()
-				continue
-			}
-			if unicode.IsDigit(ch) || ch == '.' {
-				start, end, ok := sc.scanNumber()
-				if !ok {
-					break
+				if depth != 0 {
+					out.WriteString(string(r[lastFlush:]))
+					return out.String()
 				}
-				recordOperand(start, end)
-				st = expectOperator
-				sc.skipSpaces()
-				continue
-			}
-			break
-		} else { // ожидаем оператор
-			if ch == '%' {
-				if sc.nextStartsOperand(sc.i + 1) {
-					// бинарный модуль
-					sc.advance()
-					st = expectOperand
-					sc.skipSpaces()
-					continue
-				}
-				// постфиксный процент
-				if lastStart >= 0 && lastEnd >= lastStart {
-					flush(lastStart)
-					out.WriteByte('(')
-					out.WriteString(string(sc.r[lastStart : lastEnd+1]))
-					out.WriteString("/100)")
-					lastFlush = sc.i + 1
-					sc.advance()
-					sc.skipSpaces()
-					continue
-				}
-				sc.advance()
-				sc.skipSpaces()
+				lastStart, lastEnd = start, i-1
+				state = wantOperator
+				i = skipSpacesFrom(i)
 				continue
 			}
 
-			if ch == ')' {
-				sc.advance()
-				sc.skipSpaces()
+			if unicode.IsDigit(ch) || ch == '.' {
+				start := i
+				seenDigit := false
+				seenDot := false
+				for i < n {
+					switch r[i] {
+					case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+						seenDigit = true
+						i++
+					case '.':
+						if seenDot {
+							goto numDone
+						}
+						seenDot = true
+						i++
+					default:
+						goto numDone
+					}
+				}
+			numDone:
+				if !seenDigit {
+					out.WriteString(string(r[lastFlush:]))
+					return out.String()
+				}
+				lastStart, lastEnd = start, i-1
+				state = wantOperator
+				i = skipSpacesFrom(i)
+				continue
+			}
+
+			out.WriteString(string(r[lastFlush:]))
+			return out.String()
+
+		case wantOperator:
+			if ch == '%' {
+				if nextStartsOperand(i + 1) {
+					i++
+					state = wantOperand
+					i = skipSpacesFrom(i)
+					continue
+				}
+
+				j := i
+				count := 1
+				for {
+					k := skipSpacesFrom(j + 1)
+					if k < n && r[k] == '%' {
+						count++
+						j = k
+						continue
+					}
+					break
+				}
+
+				out.WriteString(string(r[lastFlush:lastStart]))
+
+				op := string(r[lastStart : lastEnd+1])
+				for c := 0; c < count; c++ {
+					op = "(" + op + "/100)"
+				}
+				out.WriteString(op)
+
+				i = j + 1
+				i = skipSpacesFrom(i)
+				lastFlush = i
+
 				continue
 			}
 
 			if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^' || ch == '%' {
-				sc.advance()
-				st = expectOperand
-				sc.skipSpaces()
+				i++
+				state = wantOperand
+				i = skipSpacesFrom(i)
 				continue
 			}
 
-			break
+			i++
+			continue
 		}
 	}
 
-	flush(sc.n)
+	out.WriteString(string(r[lastFlush:]))
 	return out.String()
 }
