@@ -40,21 +40,35 @@ SplitExprAndComment
 ---------------------
 rewritePostfixPercentChains
 ---------------------
-отвечает за переписывание выражений с постфиксными процентами. Пример: "200%%" → "((200/100)/100)".
+отвечает за переписывание выражений с постфиксными процентами. Пример: "200%%" -> "((200/100)/100)".
 expr какает в штаны с этого :(
 
-1. Строка разбирается посимвольно в двух состояниях:
-   - wantOperand ("ожидается операнд") - число или скобки;
-   - wantOperator ("ожидается оператор") - знак операции после операнда.
-2. Когда встречается число или выражение в скобках, оно запоминается как последний операнд.
-3. Когда после операнда идёт знак '%':
-   - Если за ним следует новый операнд (например "50%3"), то '%' трактуется как обычный оператор "остаток от деления".
-   - Если операнда нет → начинается цепочка постфиксных процентов. Считается количество подряд идущих '%' (с пробелами).
-     Последний операнд переписывается как последовательность делений на 100:
-       "200%"  → "(200/100)"
-       "200%%" → "((200/100)/100)"
-       и т.д.
-4. Всё остальное копируется в результат без изменений.
+1. Предобработка (prepass):
+   Если внутри скобок встречается цепочка '%' прямо перед ')'
+   (игнорируя пробелы), то эта цепочка «поднимается» наружу,
+   то есть переносится сразу за соответствующую закрывающую скобку.
+   Например:
+     "((123+2)%%)^-2" -> "((123+2))%%^-2"
+   Благодаря этому основной проход видит '%' как оператор после
+   всего скобочного выражения, а не теряет их.
+
+2. Основной проход:
+   Строка разбирается посимвольно в двух состояниях:
+     - wantOperand ("ожидается операнд") — число или скобки
+     - wantOperator ("ожидается оператор") — знак операции после операнда
+
+   - Когда встречается число или выражение в скобках, оно запоминается
+     как последний операнд.
+   - Если за операндом идёт '%':
+       - Если дальше ожидается новый операнд (например "50%3"),
+         то '%' трактуется как оператор «остаток от деления».
+       - Если нового операнда нет → начинается цепочка постфиксных '%'
+         (учитываются идущие подряд, с пробелами).
+         Последний операнд переписывается как последовательность делений на 100:
+           "200%"  -> "(200/100)"
+           "200%%" -> "((200/100)/100)"
+           и т.д.
+   - Всё остальное копируется в результат без изменений.
 
 - Если '%' стоит в неожиданном месте, строка может быть переписана только частично.
 */
@@ -238,11 +252,6 @@ func rewritePostfixPercentChains(expr string) string {
 	r := []rune(expr)
 	n := len(r)
 
-	var out strings.Builder
-	lastFlush := 0
-
-	lastStart, lastEnd := -1, -1
-
 	isSpace := func(rr rune) bool { return unicode.IsSpace(rr) }
 	skipSpacesFrom := func(i int) int {
 		for i < n && isSpace(r[i]) {
@@ -251,8 +260,91 @@ func rewritePostfixPercentChains(expr string) string {
 		return i
 	}
 
+	var outPre []rune
+	depth := 0
+	pending := []int{0}
+
+	ensureDepth := func(d int) {
+		for len(pending) <= d {
+			pending = append(pending, 0)
+		}
+	}
+
+	i := 0
+	for i < n {
+		ch := r[i]
+
+		switch ch {
+		case '(':
+			outPre = append(outPre, ch)
+			depth++
+			ensureDepth(depth)
+			i++
+
+		case ')':
+			outPre = append(outPre, ch)
+			if depth >= 0 && depth < len(pending) && pending[depth] > 0 {
+				for c := 0; c < pending[depth]; c++ {
+					outPre = append(outPre, '%')
+				}
+				pending[depth] = 0
+			}
+			if depth > 0 {
+				depth--
+			}
+			i++
+
+		case '%':
+			if depth > 0 {
+				j := i
+				count := 0
+				for {
+					j = skipSpacesFrom(j)
+					if j < n && r[j] == '%' {
+						count++
+						j++
+						continue
+					}
+					break
+				}
+				k := skipSpacesFrom(j)
+				if count > 0 && k < n && r[k] == ')' {
+					ensureDepth(depth)
+					pending[depth] += count
+
+					i = j
+					continue
+				}
+			}
+
+			outPre = append(outPre, ch)
+			i++
+
+		default:
+			outPre = append(outPre, ch)
+			i++
+		}
+	}
+
+	expr = string(outPre)
+	r = []rune(expr)
+	n = len(r)
+
+	var out strings.Builder
+	lastFlush := 0
+
+	lastStart, lastEnd := -1, -1
+
+	isSpace2 := func(rr rune) bool { return unicode.IsSpace(rr) }
+	skipSpacesFrom2 := func(i int) int {
+		for i < n && isSpace2(r[i]) {
+			i++
+		}
+		return i
+	}
+
 	nextStartsOperand := func(from int) bool {
-		j := skipSpacesFrom(from)
+		j := skipSpacesFrom2(from)
 		if j >= n {
 			return false
 		}
@@ -262,7 +354,7 @@ func rewritePostfixPercentChains(expr string) string {
 		}
 		if ch == '-' {
 			j++
-			j = skipSpacesFrom(j)
+			j = skipSpacesFrom2(j)
 			if j < n {
 				ch2 := r[j]
 				return unicode.IsDigit(ch2) || ch2 == '(' || ch2 == '.'
@@ -278,17 +370,17 @@ func rewritePostfixPercentChains(expr string) string {
 	)
 	state := wantOperand
 
-	i := 0
+	i = 0
 	for i < n {
 		ch := r[i]
 
 		switch state {
 		case wantOperand:
 			if ch == '+' || ch == '-' {
-				j := skipSpacesFrom(i + 1)
+				j := skipSpacesFrom2(i + 1)
 				if j < n && (unicode.IsDigit(r[j]) || r[j] == '(' || r[j] == '.') {
 					i++
-					i = skipSpacesFrom(i)
+					i = skipSpacesFrom2(i)
 					continue
 				}
 			}
@@ -310,7 +402,7 @@ func rewritePostfixPercentChains(expr string) string {
 				}
 				lastStart, lastEnd = start, i-1
 				state = wantOperator
-				i = skipSpacesFrom(i)
+				i = skipSpacesFrom2(i)
 				continue
 			}
 
@@ -340,7 +432,7 @@ func rewritePostfixPercentChains(expr string) string {
 				}
 				lastStart, lastEnd = start, i-1
 				state = wantOperator
-				i = skipSpacesFrom(i)
+				i = skipSpacesFrom2(i)
 				continue
 			}
 
@@ -352,14 +444,14 @@ func rewritePostfixPercentChains(expr string) string {
 				if nextStartsOperand(i + 1) {
 					i++
 					state = wantOperand
-					i = skipSpacesFrom(i)
+					i = skipSpacesFrom2(i)
 					continue
 				}
 
 				j := i
 				count := 1
 				for {
-					k := skipSpacesFrom(j + 1)
+					k := skipSpacesFrom2(j + 1)
 					if k < n && r[k] == '%' {
 						count++
 						j = k
@@ -377,7 +469,7 @@ func rewritePostfixPercentChains(expr string) string {
 				out.WriteString(op)
 
 				i = j + 1
-				i = skipSpacesFrom(i)
+				i = skipSpacesFrom2(i)
 				lastFlush = i
 
 				continue
@@ -386,7 +478,7 @@ func rewritePostfixPercentChains(expr string) string {
 			if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^' || ch == '%' {
 				i++
 				state = wantOperand
-				i = skipSpacesFrom(i)
+				i = skipSpacesFrom2(i)
 				continue
 			}
 

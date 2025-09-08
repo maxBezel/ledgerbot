@@ -27,6 +27,7 @@ func Transaction() Command {
 				accName, args = parseSlash(msg.Text)
 			}
 			expression, note, err := exprsplit.SplitExprAndComment(args)
+			fmt.Println(expression)
 			if err != nil {
 				if err.Error() != "empty arguments" || accName != "" {
 					_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.NoExpression)))
