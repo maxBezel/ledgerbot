@@ -105,20 +105,33 @@ func (s *scanner) scanNumber() (start, end int, ok bool) {
 	start = s.i
 	seenDigit := false
 	seenDot := false
+
 	for !s.eof() {
 		rc := s.r[s.i]
-		if unicode.IsDigit(rc) {
+		switch {
+		case unicode.IsDigit(rc):
 			seenDigit = true
 			s.i++
-			continue
-		}
-		if rc == '.' && !seenDot {
+		case rc == '.':
+			if seenDot {
+				goto done
+			}
+			next := s.i + 1
+			prev := s.i - 1
+			hasPrevDigit := prev >= start && unicode.IsDigit(s.r[prev])
+			hasNextDigit := next < s.n && unicode.IsDigit(s.r[next])
+			if !hasPrevDigit && !hasNextDigit {
+				s.i = start
+				return 0, 0, false
+			}
 			seenDot = true
 			s.i++
-			continue
+		default:
+			goto done
 		}
-		break
 	}
+
+done:
 	if !seenDigit {
 		s.i = start
 		return 0, 0, false
@@ -182,6 +195,10 @@ func SplitExprAndComment(s string) (string, string, error) {
 				st = expectOperator
 				sc.skipSpaces()
 				markGood(sc.i - 1)
+				if rn, ok2, _ := sc.nextNonSpaceFrom(sc.i); ok2 &&
+					(unicode.IsDigit(rn) || rn == '.' || rn == '(') {
+					break
+				}
 				continue
 			}
 
