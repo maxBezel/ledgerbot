@@ -28,7 +28,7 @@ func Transaction() Command {
 			}
 			expression, note, err := exprsplit.SplitExprAndComment(args)
 			if err != nil {
-				if err.Error() != "empty arguments" || accName != "" {
+				if err.Error() != "no valid math expression found" || accName != "" {
 					_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.NoExpression)))
 				}
 				
