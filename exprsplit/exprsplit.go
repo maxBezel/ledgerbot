@@ -184,7 +184,6 @@ func SplitExprAndComment(s string) (string, string, error) {
 				continue
 			}
 
-			// number
 			if unicode.IsDigit(r) || r == '.' {
 				if _, _, ok := sc.scanNumber(); !ok {
 					break
@@ -209,19 +208,11 @@ func SplitExprAndComment(s string) (string, string, error) {
 			}
 
 			if r == '%' {
-				rn, ok, _ := sc.nextNonSpaceFrom(sc.i + 1)
-				if ok && (unicode.IsDigit(rn) || rn == '(' || rn == '.' || rn == '-') && sc.nextStartsOperand(sc.i+1) {
-					sc.advance()
-					st = expectOperand
-					sc.skipSpaces()
-					continue
-				}
-
 				sc.advance()
 				sc.skipSpaces()
 				markGood(sc.i - 1)
 				continue
-			}
+      }
 
 			if r == '+' || r == '-' || r == '*' || r == '/' || r == '^' {
 				sc.advance()
@@ -347,26 +338,6 @@ func rewritePostfixPercentChains(expr string) string {
 		return i
 	}
 
-	nextStartsOperand := func(from int) bool {
-		j := skipSpacesFrom2(from)
-		if j >= n {
-			return false
-		}
-		ch := r[j]
-		if unicode.IsDigit(ch) || ch == '(' || ch == '.' {
-			return true
-		}
-		if ch == '-' {
-			j++
-			j = skipSpacesFrom2(j)
-			if j < n {
-				ch2 := r[j]
-				return unicode.IsDigit(ch2) || ch2 == '(' || ch2 == '.'
-			}
-		}
-		return false
-	}
-
 	type st int
 	const (
 		wantOperand st = iota
@@ -445,41 +416,33 @@ func rewritePostfixPercentChains(expr string) string {
 
 		case wantOperator:
 			if ch == '%' {
-				if nextStartsOperand(i + 1) {
-					i++
-					state = wantOperand
-					i = skipSpacesFrom2(i)
-					continue
-				}
-
 				j := i
 				count := 1
 				for {
-					k := skipSpacesFrom2(j + 1)
-					if k < n && r[k] == '%' {
-						count++
-						j = k
-						continue
-					}
-					break
+						k := skipSpacesFrom2(j + 1)
+						if k < n && r[k] == '%' {
+								count++
+								j = k
+								continue
+						}
+						break
 				}
 
 				out.WriteString(string(r[lastFlush:lastStart]))
 
 				op := string(r[lastStart : lastEnd+1])
 				for c := 0; c < count; c++ {
-					op = "(" + op + "/100)"
+						op = "(" + op + "/100)"
 				}
 				out.WriteString(op)
 
 				i = j + 1
 				i = skipSpacesFrom2(i)
 				lastFlush = i
-
 				continue
 			}
 
-			if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^' || ch == '%' {
+			if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^' {
 				i++
 				state = wantOperand
 				i = skipSpacesFrom2(i)
