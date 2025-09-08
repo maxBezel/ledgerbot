@@ -3,13 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
-	"go/token"
-	"go/types"
 	"strconv"
 	"strings"
 
 	api "github.com/OvyFlash/telegram-bot-api"
 	"github.com/expr-lang/expr"
+	"github.com/maxBezel/ledgerbot/exprsplit"
 	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 	"github.com/maxBezel/ledgerbot/model"
 )
@@ -27,7 +26,9 @@ func Transaction() Command {
 			if accName == "" && strings.HasPrefix(msg.Text, "/") {
 				accName, args = parseSlash(msg.Text)
 			}
-			expression, note, err := splitExprAndComment(args)
+			expression, note, err := exprsplit.SplitExprAndComment(args)
+			fmt.Println(expression)
+			fmt.Println(note)
 			if err != nil {
 				if err.Error() != "empty arguments" || accName != "" {
 					_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.NoExpression)))
@@ -93,34 +94,6 @@ func Eval(s string) (float64, error) {
 		return 0, fmt.Errorf("run: %w", err)
 	}
 	return out.(float64), nil
-}
-
-func splitExprAndComment(args string) (expr, comment string, err error) {
-	s := strings.TrimSpace(args)
-	if s == "" {
-		return "", "", fmt.Errorf("empty arguments")
-	}
-
-	lastOK := -1
-	fset := token.NewFileSet()
-
-	for i := 1; i <= len(s); i++ {
-		prefix := strings.TrimSpace(s[:i])
-		if prefix == "" {
-			continue
-		}
-		//жесткие костыли на самом деле боги литкода меня бы убили
-		if _, e := types.Eval(fset, nil, token.NoPos, prefix); e == nil {
-			lastOK = i
-		}
-	}
-
-	if lastOK == -1 {
-		return "", "", fmt.Errorf("no valid expression at start")
-	}
-	expr = strings.TrimSpace(s[:lastOK])
-	comment = strings.TrimSpace(s[lastOK:])
-	return
 }
 
 func parseSlash(s string) (cmd, args string) {

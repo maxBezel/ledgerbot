@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
   python3 deploy.py \
-    --repo /path/to/your/repo \
-    --branch main \
-    --service myapp.service \
-    --binary-name myapp \
-    --url https://github.com/user/project.git
+  --repo /root/work \
+  --url git@github.com:maxBezel/ledgerbot.git \
+  --branch main \
+  --work-dir /root/ \
+  --service ledgerbot.service \
+  --binary-name ledgerbot
 """
 
 import argparse
