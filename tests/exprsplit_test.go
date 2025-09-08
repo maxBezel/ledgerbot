@@ -169,7 +169,15 @@ func TestSeparateExprComment_NoPostfixPercentRemains(t *testing.T) {
 		"((2+3))%",
 		"10% + 5",
 		"10%+5",
+
+		"10%5",
+		"10%-5",
+		"10% - 5",
+		"(10)%5",
+
+		"(2+3)%^2",
 	}
+
 	for _, in := range cases {
 		expr, _, err := exprsplit.SplitExprAndComment(in)
 		if err != nil {
@@ -186,7 +194,10 @@ func FuzzSeparateExprComment(f *testing.F) {
 		"", " ", "1", "1+2", "((3))", "4+", "+5", "-(6)", "7*8  text",
 		"3. .x", "10+5//hi", ")))", "(((1+2)", ".5 + .25 end",
 		"(100 * 78.5)*50%/(10-5.3)",
-		"50%%", "10%5", "10%-5", "10% - 5",
+		"50%%",
+
+		"10%5", "10%-5", "10% - 5", "(10)%5", "((2))%3",
+		"(2+3)%^2",
 	}
 	for _, s := range seeds {
 		f.Add(s)
