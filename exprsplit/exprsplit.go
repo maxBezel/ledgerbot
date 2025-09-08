@@ -243,7 +243,11 @@ func SplitExprAndComment(s string) (string, string, error) {
 	rawExpr := strings.TrimSpace(string(sc.r[:lastGood+1]))
 	comment := strings.TrimSpace(string(sc.r[lastGood+1:]))
 
-	rewritten := rewritePostfixPercentChains(rawExpr)
+	rewritten := rawExpr
+	if strings.ContainsRune(rawExpr, '%') {
+			rewritten = rewritePostfixPercentChains(rawExpr)
+	}
+
 
 	return rewritten, comment, nil
 }
