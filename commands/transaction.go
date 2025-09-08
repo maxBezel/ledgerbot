@@ -46,6 +46,7 @@ func Transaction() Command {
 
 			val, err := Eval(expression)
 			if err != nil {
+				_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.InvalidExpression)))
 				return err
 			}
 
