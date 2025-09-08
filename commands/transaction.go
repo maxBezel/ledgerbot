@@ -66,10 +66,14 @@ func Transaction() Command {
 			btn := api.NewInlineKeyboardButtonData("↩️ Откатить это изменение", fmt.Sprintf("undo:%d", txsId))
 			kb := api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
 
+			if note == "" {
+				note = "Нет"
+			}
 			reply := msgs.T(
 				msgs.BalanceUpdated,
 				strconv.FormatFloat(val, 'f', 2, 64),
 				accName,
+				note,
 				strconv.FormatFloat(newBalance, 'f', 2, 64),
 			)
 

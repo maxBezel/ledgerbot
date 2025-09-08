@@ -29,7 +29,7 @@ var rus = map[ID]string{
 	AccDoesNotExist:       "Счет %s не существует.❌",
 	AccAlreadyExist:       "Счет с таким именем уже существует",
 	AccRemoved:            "Счет %s удален",
-	BalanceUpdated:        "Запомнил %s на счет %s \nБаланс: %s",
+	BalanceUpdated:        "Запомнил %s на счет %s\nКомментарий к транзакции: %s\nБаланс: %s",
 	UnsuccessfulOperation: "Неудалось выполнить операцию",
 }
 
