@@ -235,216 +235,266 @@ func SplitExprAndComment(s string) (string, string, error) {
 }
 
 func rewritePostfixPercentChains(expr string) string {
-	r := []rune(expr)
-	n := len(r)
+	{
+		r := []rune(expr)
+		n := len(r)
+		var b strings.Builder
+		i := 0
 
-	isSpace := func(rr rune) bool { return unicode.IsSpace(rr) }
-	skipSpacesFrom := func(i int) int {
-		for i < n && isSpace(r[i]) {
-			i++
-		}
-		return i
-	}
-
-	var outPre []rune
-	depth := 0
-	pending := []int{0}
-
-	ensureDepth := func(d int) {
-		for len(pending) <= d {
-			pending = append(pending, 0)
-		}
-	}
-
-	i := 0
-	for i < n {
-		ch := r[i]
-
-		switch ch {
-		case '(':
-			outPre = append(outPre, ch)
-			depth++
-			ensureDepth(depth)
-			i++
-
-		case ')':
-			outPre = append(outPre, ch)
-			if depth >= 0 && depth < len(pending) && pending[depth] > 0 {
-				for c := 0; c < pending[depth]; c++ {
-					outPre = append(outPre, '%')
-				}
-				pending[depth] = 0
-			}
-			if depth > 0 {
-				depth--
-			}
-			i++
-
-		case '%':
-			if depth > 0 {
-				j := i
-				count := 0
-				for {
-					j = skipSpacesFrom(j)
-					if j < n && r[j] == '%' {
-						count++
-						j++
-						continue
-					}
-					break
-				}
-				k := skipSpacesFrom(j)
-				if count > 0 && k < n && r[k] == ')' {
-					ensureDepth(depth)
-					pending[depth] += count
-
-					i = j
-					continue
-				}
-			}
-
-			outPre = append(outPre, ch)
-			i++
-
-		default:
-			outPre = append(outPre, ch)
-			i++
-		}
-	}
-
-	expr = string(outPre)
-	r = []rune(expr)
-	n = len(r)
-
-	var out strings.Builder
-	lastFlush := 0
-
-	lastStart, lastEnd := -1, -1
-
-	isSpace2 := func(rr rune) bool { return unicode.IsSpace(rr) }
-	skipSpacesFrom2 := func(i int) int {
-		for i < n && isSpace2(r[i]) {
-			i++
-		}
-		return i
-	}
-
-	type st int
-	const (
-		wantOperand st = iota
-		wantOperator
-	)
-	state := wantOperand
-
-	i = 0
-	for i < n {
-		ch := r[i]
-
-		switch state {
-		case wantOperand:
-			if ch == '+' || ch == '-' {
-				j := skipSpacesFrom2(i + 1)
-				if j < n && (unicode.IsDigit(r[j]) || r[j] == '(' || r[j] == '.') {
-					i++
-					i = skipSpacesFrom2(i)
-					continue
-				}
-			}
-			if ch == '(' {
-				start := i
-				depth := 1
+		for i < n {
+			if r[i] != '(' {
+				b.WriteRune(r[i])
 				i++
-				for i < n && depth > 0 {
-					if r[i] == '(' {
-						depth++
-					} else if r[i] == ')' {
-						depth--
-					}
-					i++
-				}
-				if depth != 0 {
-					out.WriteString(string(r[lastFlush:]))
-					return out.String()
-				}
-				lastStart, lastEnd = start, i-1
-				state = wantOperator
-				i = skipSpacesFrom2(i)
 				continue
 			}
 
-			if unicode.IsDigit(ch) || ch == '.' {
-				start := i
-				seenDigit := false
-				seenDot := false
-				for i < n {
-					switch r[i] {
-					case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-						seenDigit = true
-						i++
-					case '.':
-						if seenDot {
-							goto numDone
-						}
-						seenDot = true
-						i++
-					default:
-						goto numDone
-					}
+			b.WriteRune('(')
+			startInner := i + 1
+			depth := 1
+			i++
+			for i < n && depth > 0 {
+				if r[i] == '(' {
+					depth++
+				} else if r[i] == ')' {
+					depth--
 				}
-			numDone:
-				if !seenDigit {
-					out.WriteString(string(r[lastFlush:]))
-					return out.String()
-				}
-				lastStart, lastEnd = start, i-1
-				state = wantOperator
-				i = skipSpacesFrom2(i)
-				continue
+				i++
 			}
+			endInner := i - 1
 
-			out.WriteString(string(r[lastFlush:]))
-			return out.String()
+			if endInner >= startInner && endInner <= n-1 {
+				inner := string(r[startInner:endInner])
+				// Recursively rewrite inside the parentheses
+				b.WriteString(rewritePostfixPercentChains(inner))
+				b.WriteRune(')')
+			} else {
+				if startInner-1 < n {
+					b.WriteString(string(r[startInner-1:]))
+				}
+				expr = b.String()
+				goto afterRecursion
+			}
+		}
+		expr = b.String()
+	}
+afterRecursion:
 
-		case wantOperator:
-			if ch == '%' {
-				j := i
-				count := 1
-				for {
-						k := skipSpacesFrom2(j + 1)
-						if k < n && r[k] == '%' {
-								count++
-								j = k
-								continue
+	{
+		r := []rune(expr)
+		n := len(r)
+
+		isSpace := func(rr rune) bool { return unicode.IsSpace(rr) }
+		skipSpacesFrom := func(i int) int {
+			for i < n && isSpace(r[i]) {
+				i++
+			}
+			return i
+		}
+
+		var outPre []rune
+		depth := 0
+		pending := []int{0}
+
+		ensureDepth := func(d int) {
+			for len(pending) <= d {
+				pending = append(pending, 0)
+			}
+		}
+
+		i := 0
+		for i < n {
+			ch := r[i]
+			switch ch {
+			case '(':
+				outPre = append(outPre, ch)
+				depth++
+				ensureDepth(depth)
+				i++
+
+			case ')':
+				outPre = append(outPre, ch)
+				if depth >= 0 && depth < len(pending) && pending[depth] > 0 {
+					for c := 0; c < pending[depth]; c++ {
+						outPre = append(outPre, '%')
+					}
+					pending[depth] = 0
+				}
+				if depth > 0 {
+					depth--
+				}
+				i++
+
+			case '%':
+				if depth > 0 {
+					j := i
+					count := 0
+					for {
+						j = skipSpacesFrom(j)
+						if j < n && r[j] == '%' {
+							count++
+							j++
+							continue
 						}
 						break
+					}
+					k := skipSpacesFrom(j)
+					if count > 0 && k < n && r[k] == ')' {
+						ensureDepth(depth)
+						pending[depth] += count
+						i = j
+						continue
+					}
 				}
-
-				out.WriteString(string(r[lastFlush:lastStart]))
-
-				op := string(r[lastStart : lastEnd+1])
-				for c := 0; c < count; c++ {
-						op = "(" + op + "/100)"
-				}
-				out.WriteString(op)
-
-				i = j + 1
-				i = skipSpacesFrom2(i)
-				lastFlush = i
-				continue
-			}
-
-			if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^' {
+				outPre = append(outPre, ch)
 				i++
-				state = wantOperand
-				i = skipSpacesFrom2(i)
-				continue
-			}
 
-			i++
-			continue
+			default:
+				outPre = append(outPre, ch)
+				i++
+			}
 		}
+
+		expr = string(outPre)
 	}
 
-	out.WriteString(string(r[lastFlush:]))
-	return out.String()
+	{
+		r := []rune(expr)
+		n := len(r)
+
+		var out strings.Builder
+		lastFlush := 0
+
+		lastStart, lastEnd := -1, -1
+
+		isSpace := func(rr rune) bool { return unicode.IsSpace(rr) }
+		skipSpacesFrom := func(i int) int {
+			for i < n && isSpace(r[i]) {
+				i++
+			}
+			return i
+		}
+
+		type st int
+		const (
+			wantOperand st = iota
+			wantOperator
+		)
+		state := wantOperand
+
+		i := 0
+		for i < n {
+			ch := r[i]
+
+			switch state {
+			case wantOperand:
+				// Unary + or -
+				if ch == '+' || ch == '-' {
+					j := skipSpacesFrom(i + 1)
+					if j < n && (unicode.IsDigit(r[j]) || r[j] == '(' || r[j] == '.') {
+						i++
+						i = skipSpacesFrom(i)
+						continue
+					}
+				}
+
+				if ch == '(' {
+					start := i
+					depth := 1
+					i++
+					for i < n && depth > 0 {
+						if r[i] == '(' {
+							depth++
+						} else if r[i] == ')' {
+							depth--
+						}
+						i++
+					}
+					if depth != 0 {
+						out.WriteString(string(r[lastFlush:]))
+						return out.String()
+					}
+					lastStart, lastEnd = start, i-1
+					state = wantOperator
+					i = skipSpacesFrom(i)
+					continue
+				}
+
+				if unicode.IsDigit(ch) || ch == '.' {
+					start := i
+					seenDigit := false
+					seenDot := false
+					for i < n {
+						switch r[i] {
+						case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+							seenDigit = true
+							i++
+						case '.':
+							if seenDot {
+								goto numDone
+							}
+							seenDot = true
+							i++
+						default:
+							goto numDone
+						}
+					}
+				numDone:
+					if !seenDigit {
+						out.WriteString(string(r[lastFlush:]))
+						return out.String()
+					}
+					lastStart, lastEnd = start, i-1
+					state = wantOperator
+					i = skipSpacesFrom(i)
+					continue
+				}
+
+				out.WriteString(string(r[lastFlush:]))
+				return out.String()
+
+			case wantOperator:
+				if ch == '%' {
+					j := i
+					count := 1
+					for {
+						k := skipSpacesFrom(j + 1)
+						if k < n && r[k] == '%' {
+							count++
+							j = k
+							continue
+						}
+						break
+					}
+
+					out.WriteString(string(r[lastFlush:lastStart]))
+
+					op := string(r[lastStart : lastEnd+1])
+					for c := 0; c < count; c++ {
+						op = "(" + op + "/100)"
+					}
+					out.WriteString(op)
+
+					i = j + 1
+					i = skipSpacesFrom(i)
+					lastFlush = i
+					continue
+				}
+
+				if ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '^' {
+					i++
+					state = wantOperand
+					i = skipSpacesFrom(i)
+					continue
+				}
+
+				i++
+				continue
+			}
+		}
+
+		// Flush trailing segment
+		out.WriteString(string(r[lastFlush:]))
+		return out.String()
+	}
 }
+
