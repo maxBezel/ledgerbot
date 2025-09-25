@@ -23,9 +23,12 @@ func HandleCallback(ctx context.Context, d Deps, cq *api.CallbackQuery) {
 }
 
 func handleUndo(ctx context.Context, d Deps, cq *api.CallbackQuery, data string) {
-	txID, err := strconv.Atoi(strings.TrimPrefix(data, "undo:"))
+	parts := strings.Split(strings.TrimPrefix(data, "undo:"), ",")
+	txID, err := strconv.Atoi(parts[0])
+	accName := parts[1]
 	if err == nil {
-		if err := d.Storage.RevertTransaction(ctx, int64(txID)); err != nil {
+		newBalance, delta, err := d.Storage.RevertTransaction(ctx, int64(txID))
+		if err != nil {
 			_ = answerCB(d.Bot, cq, msgs.T(msgs.UnsuccessfulOperation), true)
 			return
 		}
@@ -34,6 +37,17 @@ func handleUndo(ctx context.Context, d Deps, cq *api.CallbackQuery, data string)
 		edit := api.NewEditMessageText(cq.Message.Chat.ID, cq.Message.MessageID,
 			cq.Message.Text+"\n\nДанное изменение отменено ✅")
 		_, _ = d.Bot.Send(edit)
+
+		reply_msg := msgs.T(
+			msgs.BalanceReverted,
+			strconv.FormatFloat(-delta, 'f', 2, 64),
+			accName,
+			strconv.FormatFloat(newBalance, 'f', 2, 64),
+		)
+
+		reply := api.NewMessage(cq.Message.Chat.ID, reply_msg)
+		reply.ReplyParameters.MessageID = cq.Message.MessageID
+		_, _ = d.Bot.Send(reply)
 		return
 	}
 }

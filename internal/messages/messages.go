@@ -18,6 +18,7 @@ const (
 	AccAlreadyExist       ID = "acc_already_exist"
 	AccRemoved            ID = "acc_removed"
 	BalanceUpdated        ID = "balance_updated"
+	BalanceReverted       ID = "balance_reverted"
 	UnsuccessfulOperation ID = "unsuccessful_operation"
 )
 
@@ -32,6 +33,7 @@ var rus = map[ID]string{
 	AccAlreadyExist:       "Счет с таким именем уже существует",
 	AccRemoved:            "Счет %s удален",
 	BalanceUpdated:        "Запомнил %s на счет %s\nКомментарий к транзакции: %s\nБаланс: %s",
+	BalanceReverted:       "Транзакция была успешно отменена.\nЗапомнил %s на счет %s\nБаланс: %s",
 	UnsuccessfulOperation: "Неудалось выполнить операцию",
 }
 

@@ -64,7 +64,7 @@ func Transaction() Command {
 			txs := model.NewTransaction(accountId, val, note, newBalance, expression, usrId)
 			newBalance, txsId, err := d.Storage.ApplyDeltaAndLog(ctx, chatID, accName, val, txs)
 
-			btn := api.NewInlineKeyboardButtonData("↩️ Откатить это изменение", fmt.Sprintf("undo:%d", txsId))
+			btn := api.NewInlineKeyboardButtonData("↩️ Откатить это изменение", fmt.Sprintf("undo:%d,%s", txsId, accName))
 			kb := api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(btn))
 
 			if note == "" {

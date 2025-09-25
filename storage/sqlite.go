@@ -249,10 +249,10 @@ func (s *Storage) GetAccountID(ctx context.Context, chatID int64, name string) (
 	return id, nil
 }
 
-func (s *Storage) RevertTransaction(ctx context.Context, txsId int64) (err error) {
+func (s *Storage) RevertTransaction(ctx context.Context, txsId int64) (newBalance float64, delta float64, err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+		return 0, 0, fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -262,37 +262,44 @@ func (s *Storage) RevertTransaction(ctx context.Context, txsId int64) (err error
 
 	var (
 		amount    float64
-		accountID int
+		accountID int64
 	)
 
 	const sel = `SELECT amount, account_id FROM account_txns WHERE id = ?`
 	if err = tx.QueryRowContext(ctx, sel, txsId).Scan(&amount, &accountID); err != nil {
-		return fmt.Errorf("select tx: %w", err)
+		return 0, 0, fmt.Errorf("select tx: %w", err)
 	}
 
 	const upd = `UPDATE accounts SET balance = balance - ? WHERE id = ?`
 	res, err := tx.ExecContext(ctx, upd, amount, accountID)
 	if err != nil {
-		return fmt.Errorf("update balance: %w", err)
+		return 0, 0, fmt.Errorf("update balance: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("account not found for transaction")
+		return 0, 0, fmt.Errorf("account not found for transaction")
 	}
 
 	const del = `DELETE FROM account_txns WHERE id = ?`
 	res, err = tx.ExecContext(ctx, del, txsId)
 	if err != nil {
-		return fmt.Errorf("delete tx: %w", err)
+		return 0, 0, fmt.Errorf("delete tx: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("transaction already deleted")
+		return 0, 0, fmt.Errorf("transaction already deleted")
+	}
+
+	const selBal = `SELECT balance FROM accounts WHERE id = ?`
+	if err = tx.QueryRowContext(ctx, selBal, accountID).Scan(&newBalance); err != nil {
+		return 0, 0, fmt.Errorf("select balance: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit: %w", err)
+		return 0, 0, fmt.Errorf("commit: %w", err)
 	}
-	return nil
+
+	return newBalance, amount, nil
 }
+
 
 type AccountBalance struct {
 	Name    string

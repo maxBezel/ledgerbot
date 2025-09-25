@@ -19,7 +19,7 @@ type Storage interface {
 	ApplyDeltaAndLog(ctx context.Context, chatId int64, name string, delta float64, txs *model.Transaction) (newBalance float64, txnID int64, err error)
 	Exists(ctx context.Context, chatID int64, name string) (bool, error)
 	GetAccountID(ctx context.Context, chatID int64, name string) (int, error)
-	RevertTransaction(ctx context.Context, txsId int64) (error)
+	RevertTransaction(ctx context.Context, txsId int64) (float64, float64, error)
 	ListAccountBalances(ctx context.Context, chatID int64) ([]sqlite.AccountBalance, error)
 	WriteTransactionsCsv(ctx context.Context, chatId int64, filename string) error
 	GetCurrentBalance(ctx context.Context, accountID int) (float64, error)
