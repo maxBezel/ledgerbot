@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	api "github.com/OvyFlash/telegram-bot-api"
@@ -72,10 +71,10 @@ func Transaction() Command {
 			}
 			reply := msgs.T(
 				msgs.BalanceUpdated,
-				strconv.FormatFloat(val, 'f', 2, 64),
+				formatAmount(val),
 				accName,
 				note,
-				strconv.FormatFloat(newBalance, 'f', 2, 64),
+				formatAmount(newBalance),
 			)
 
 			msgOK := api.NewMessage(chatID, reply)

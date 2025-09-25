@@ -40,9 +40,9 @@ func handleUndo(ctx context.Context, d Deps, cq *api.CallbackQuery, data string)
 
 		reply_msg := msgs.T(
 			msgs.BalanceReverted,
-			strconv.FormatFloat(-delta, 'f', 2, 64),
+			formatAmount(-delta),
 			accName,
-			strconv.FormatFloat(newBalance, 'f', 2, 64),
+			formatAmount(newBalance),
 		)
 
 		reply := api.NewMessage(cq.Message.Chat.ID, reply_msg)
