@@ -127,7 +127,12 @@ func (s *scanner) nextStartsOperand(from int) bool {
 	return false
 }
 
-func SplitExprAndComment(s string) (string, string, error) {
+func SplitExprAndComment(orig string) (string, string, error) {
+	s := orig
+	if strings.ContainsRune(orig, ',') {
+		s = strings.ReplaceAll(orig, ",", ".")
+	}
+
 	sc := newScanner(s)
 	st := expectOperand
 	paren := 0
@@ -193,7 +198,7 @@ func SplitExprAndComment(s string) (string, string, error) {
 				sc.skipSpaces()
 				markGood(sc.i - 1)
 				continue
-      }
+			}
 
 			if r == '+' || r == '-' || r == '*' || r == '/' || r == '^' {
 				sc.advance()
@@ -212,8 +217,8 @@ func SplitExprAndComment(s string) (string, string, error) {
 		return "", "", fmt.Errorf("no valid math expression found")
 	}
 
-	rawExpr := strings.TrimSpace(string(sc.r[:lastGood+1]))
-	comment := strings.TrimSpace(string(sc.r[lastGood+1:]))
+	rawExpr := strings.TrimSpace(string([]rune(s)[:lastGood+1]))
+	comment := strings.TrimSpace(string([]rune(orig)[lastGood+1:]))
 
 	return rawExpr, comment, nil
 }
