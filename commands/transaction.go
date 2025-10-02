@@ -1,12 +1,16 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 
 	api "github.com/OvyFlash/telegram-bot-api"
-	"github.com/expr-lang/expr"
 	"github.com/maxBezel/ledgerbot/exprsplit"
 	msgs "github.com/maxBezel/ledgerbot/internal/messages"
 	"github.com/maxBezel/ledgerbot/model"
@@ -43,7 +47,7 @@ func Transaction() Command {
 				return nil
 			}
 
-			val, err := Eval(expression)
+			val, err := EvalQalc(ctx, expression, 20)
 			if err != nil {
 				_, _ = d.Bot.Send(api.NewMessage(chatID, msgs.T(msgs.InvalidExpression)))
 				return err
@@ -86,16 +90,47 @@ func Transaction() Command {
 	}
 }
 
-func Eval(s string) (float64, error) {
-	prog, err := expr.Compile(s, expr.AsFloat64())
+func EvalQalc(ctx context.Context, raw string, precision int) (float64, error) {
+	expr := strings.TrimSpace(raw)
+
+	path, err := exec.LookPath("qalc")
 	if err != nil {
-		return 0, fmt.Errorf("compile: %w", err)
+		return 0, fmt.Errorf("qalc not found in PATH: %w", err)
 	}
-	out, err := expr.Run(prog, nil)
+
+	precArg := fmt.Sprintf("prec %d", precision)
+	args := []string{"--terse", "--set", precArg, "--", expr}
+
+	if ctx == nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+	}
+
+	cmd := exec.CommandContext(ctx, path, args...)
+	env := os.Environ()
+	env = append(env, "LC_ALL=C", "LANG=C", "LC_NUMERIC=C")
+	cmd.Env = env
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("qalc run error: %v (stderr=%q)", err, strings.TrimSpace(stderr.String()))
+	}
+
+	res := strings.TrimSpace(stdout.String())
+	res = strings.ReplaceAll(res, "−", "-")
+	res = strings.ReplaceAll(res, " ", "")
+	res = strings.ReplaceAll(res, "\u2009", "")
+	res = strings.ReplaceAll(res, "\u202F", "")
+
+	v, err := strconv.ParseFloat(res, 64)
 	if err != nil {
-		return 0, fmt.Errorf("run: %w", err)
+		return 0, fmt.Errorf("parse qalc result %q failed for expr %q", res, expr)
 	}
-	return out.(float64), nil
+	return v, nil
 }
 
 func parseSlash(s string) (cmd, args string) {
